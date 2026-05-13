@@ -90,7 +90,7 @@ export default function YaeMikoDashboard() {
       
       {/* BACKGROUND VIDEO ANIME (NEMPEL DI BELAKANG) */}
       <div className="fixed inset-0 z-0">
-        <video autoPlay loop muted playsInline className="w-full h-full object-containt scale-80">
+        <video autoPlay loop muted playsInline className="w-full h-full object-containt scale-0.9">
           <source src="/bg-anime.mp4" type="video/mp4" />
         </video>
         {/* Overlay gelap biar dashboard asli lo tetep kelihatan jelas */}
