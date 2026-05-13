@@ -39,19 +39,14 @@ export default function YaeMikoDashboard() {
       const storedLimit = localStorage.getItem('selz_bug_limit');
       const resetTimestamp = localStorage.getItem('selz_reset_time');
       const now = new Date().getTime();
+      
       if (resetTimestamp && now > parseInt(resetTimestamp)) {
         localStorage.setItem('selz_bug_limit', '5');
         localStorage.removeItem('selz_reset_time');
         setBugLimit(5);
+        setResetTimeLeft("");
       } else if (storedLimit) {
         setBugLimit(parseInt(storedLimit));
-      }
-      if (resetTimestamp) {
-        const distance = parseInt(resetTimestamp) - now;
-        const hours = Math.floor((distance % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-        const minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
-        const seconds = Math.floor((distance % (1000 * 60)) / 1000);
-        setResetTimeLeft(`${hours}j ${minutes}m ${seconds}s`);
       }
     };
     checkLimit();
@@ -60,13 +55,18 @@ export default function YaeMikoDashboard() {
   }, []);
 
   const handleSendBug = () => {
-    if (bugLimit <= 5) { setShowLimitPopup(true); return; }
+    if (bugLimit <= 0) { setShowLimitPopup(true); return; }
+    
     setIsSendingBug(true);
     setTimeout(() => {
       const newLimit = bugLimit - 1;
       setBugLimit(newLimit);
       localStorage.setItem('selz_bug_limit', newLimit.toString());
-      if (newLimit === 5) localStorage.setItem('selz_reset_time', (new Date().getTime() + 86400000).toString());
+      
+      if (newLimit === 0) {
+        const resetTime = new Date().getTime() + (24 * 60 * 60 * 1000);
+        localStorage.setItem('selz_reset_time', resetTime.toString());
+      }
       setIsSendingBug(false);
     }, 3000);
   };
@@ -111,6 +111,26 @@ export default function YaeMikoDashboard() {
             BOT
           </a>
           <button onClick={() => setShowErrorOverlay(false)} className="mt-12 text-white/30 text-[10px] uppercase tracking-[0.5em] hover:text-white transition-colors">Tutup</button>
+        </div>
+      )}
+
+      {/* POPUP LIMIT HABIS */}
+      {showLimitPopup && (
+        <div className="fixed inset-0 z-[200] bg-black/95 flex flex-col items-center justify-center p-8 text-center backdrop-blur-2xl animate-in zoom-in duration-300">
+          <div className="w-24 h-24 bg-red-500/20 rounded-full flex items-center justify-center mb-8 border border-red-500/50 animate-bounce">
+            <AlertTriangle className="w-12 h-12 text-red-500" />
+          </div>
+          <h2 className="text-white font-black text-2xl mb-4 leading-tight uppercase italic">
+            LIMIT LU ABIS NGENTOD KALO MAU LIMIT UNLIMITED PREMIUM SINI
+          </h2>
+          <a href="http://t.me/lalaypo_bot" target="_blank" className="w-full max-w-xs py-5 bg-white text-black rounded-2xl font-black text-sm mb-6 shadow-[0_20px_50px_rgba(255,255,255,0.2)] active:scale-95 transition-all">
+            PREMIUM KE BOT
+          </a>
+          <div className="flex items-center gap-2 text-yellow-400 font-black text-[10px] tracking-widest uppercase italic">
+            <Timer className="w-4 h-4" />
+            <span>LIMIT BAKAL RESET 24 JAM KEDEPAN</span>
+          </div>
+          <button onClick={() => setShowLimitPopup(false)} className="mt-12 text-white/20 text-[8px] uppercase tracking-[0.5em]">Tutup</button>
         </div>
       )}
 
@@ -184,4 +204,4 @@ function StatItem({ val, label, color = "text-white" }: any) {
       <span className="text-[7px] text-white/30 uppercase font-bold mt-1 tracking-widest">{label}</span>
     </div>
   )
-          }
+      }
