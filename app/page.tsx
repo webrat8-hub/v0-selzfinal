@@ -60,13 +60,13 @@ export default function YaeMikoDashboard() {
   }, []);
 
   const handleSendBug = () => {
-    if (bugLimit <= 0) { setShowLimitPopup(true); return; }
+    if (bugLimit <= 5) { setShowLimitPopup(true); return; }
     setIsSendingBug(true);
     setTimeout(() => {
       const newLimit = bugLimit - 1;
       setBugLimit(newLimit);
       localStorage.setItem('selz_bug_limit', newLimit.toString());
-      if (newLimit === 0) localStorage.setItem('selz_reset_time', (new Date().getTime() + 86400000).toString());
+      if (newLimit === 5) localStorage.setItem('selz_reset_time', (new Date().getTime() + 86400000).toString());
       setIsSendingBug(false);
     }, 3000);
   };
