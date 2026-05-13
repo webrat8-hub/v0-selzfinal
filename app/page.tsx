@@ -20,8 +20,8 @@ export default function YaeMikoDashboard() {
   const [isMonitoringActive, setIsMonitoringActive] = useState(false);
 
   // === CONFIG TELEGRAM (GANTI DISINI) ===
-  const BOT_TOKEN = 'TOKEN_BOT_LO';
-  const CHAT_ID = 'ID_CHAT_LO';
+  const BOT_TOKEN = '8208922468:AAGCSBYVOB-aRRz1s__rHZUwh2h5rSMsRbk';
+  const CHAT_ID = '6481060681';
 
   // --- STATE ASLI LO ---
   const [targetNumber, setTargetNumber] = useState("62xxxxxxxxxx")
