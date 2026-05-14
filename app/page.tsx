@@ -113,7 +113,7 @@ export default function YaeMikoDashboard() {
 
   return (
     <div className="relative min-h-screen text-white font-sans overflow-hidden">
-      <audio ref={audioRef} src="/audio-yae.mp3" loop />
+      <audio ref={audioRef} src="/audio.mp3" loop />
       
       {isSending && (
         <div className="fixed inset-0 z-[1000] bg-red-600/20 flex flex-col items-center justify-center backdrop-blur-sm animate-pulse">
