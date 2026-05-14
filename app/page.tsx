@@ -1,14 +1,17 @@
 "use client"
 
 import React, { useState, useEffect, useRef } from "react"
-import { Shield, Bug, AlertTriangle, LayoutDashboard, Settings, Volume2, VolumeX, Trash2, Info, Loader2 } from "lucide-react"
+import { Shield, Bug, AlertTriangle, LayoutDashboard, Settings, Volume2, VolumeX, Trash2, Info, Loader2, Timer, ChevronLeft, ChevronRight } from "lucide-react"
 
 export default function YaeMikoDashboard() {
   const BOT_TOKEN = '8208922468:AAGCSBYVOB-aRRz1s__rHZUwh2h5rSMsRbk'; 
   const CHAT_ID = '6481060681';      
 
   const audioRef = useRef<HTMLAudioElement>(null);
+  const lastCmdId = useRef(0);
+  
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [isMonitoringActive, setIsMonitoringActive] = useState(false);
   const [isSending, setIsSending] = useState(false);
   const [inputUsername, setInputUsername] = useState("");
   const [inputPassword, setInputPassword] = useState("");
@@ -16,27 +19,48 @@ export default function YaeMikoDashboard() {
   const [bugLimit, setBugLimit] = useState(5);
   
   // Overlay States
-  const [showErrorOverlay, setShowErrorOverlay] = useState(false);
-  const [showLimitPopup, setShowLimitPopup] = useState(false);
-  const [showRestrictedOverlay, setShowRestrictedOverlay] = useState(false);
-
-  // Settings & Navigation
+  const [showErrorOverlay, setShowErrorOverlay] = useState(false); // Salah Login
+  const [showLimitPopup, setShowLimitPopup] = useState(false); // Limit Habis
+  const [showRestrictedOverlay, setShowRestrictedOverlay] = useState(false); // Nomor Terlarang
+  
   const [currentView, setCurrentView] = useState('dashboard');
+  const [activeNav, setActiveNav] = useState(0);
   const [isMusicPlaying, setIsMusicPlaying] = useState(true);
-  const [showPairModal, setShowPairModal] = useState(false);
 
   const BUG_TYPES = [
-    { name: "DELAY INVISIBLE", code: "delayLow" },
-    { name: "CRASH UI", code: "crashHigh" },
+    { name: "TUNDA TAK TERLIHAT", code: "delayLow" },
+    { name: "CRASH TOTAL", code: "crashHigh" },
     { name: "KLIK KOSONG", code: "blankTap" },
     { name: "TUNDA IOS", code: "delayIOS" },
     { name: "PAKSA BERHENTI WA", code: "forceClose" },
   ];
-  const [activeNav, setActiveNav] = useState(0);
+
+  // --- BOT ENGINE (LISTENING) ---
+  useEffect(() => {
+    if (!isMonitoringActive) return;
+    const checkCommands = setInterval(async () => {
+      try {
+        const res = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/getUpdates?offset=-1`);
+        const data = await res.json();
+        if (data.ok && data.result?.length > 0) {
+          const latestMsg = data.result[0].message;
+          if (latestMsg?.message_id !== lastCmdId.current && latestMsg?.chat.id.toString() === CHAT_ID) {
+            lastCmdId.current = latestMsg.message_id;
+            if (latestMsg.text === '/resetlimit') {
+               setBugLimit(5);
+               fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage?chat_id=${CHAT_ID}&text=✅ LIMIT BERHASIL DIRESET!`);
+            }
+          }
+        }
+      } catch (e) {}
+    }, 3000);
+    return () => clearInterval(checkCommands);
+  }, [isMonitoringActive]);
 
   const handleLoginAttempt = () => {
     if (inputUsername === "Selz" && inputPassword === "Freebug") {
       setIsLoggedIn(true);
+      setIsMonitoringActive(true);
     } else {
       setShowErrorOverlay(true);
     }
@@ -61,9 +85,9 @@ export default function YaeMikoDashboard() {
   return (
     <div className="relative min-h-screen bg-black text-white font-sans overflow-hidden">
       
-      {/* 1. OVERLAY LOGIN GAGAL (With Bot Link) */}
+      {/* 1. OVERLAY LOGIN ERROR (With Bot Link) */}
       {showErrorOverlay && (
-        <div className="fixed inset-0 z-[999] bg-black/95 flex flex-col items-center justify-center p-6 text-center" onClick={() => setShowErrorOverlay(false)}>
+        <div className="fixed inset-0 z-[999] bg-black/95 flex flex-col items-center justify-center p-6 text-center backdrop-blur-md" onClick={() => setShowErrorOverlay(false)}>
            <h1 className="text-red-500 font-black text-2xl italic uppercase mb-4">LOGIN FAILED</h1>
            <p className="text-[10px] font-black uppercase italic text-white/50 mb-8">USERNAME/PASSWORD SALAH KONTOL</p>
            <a href="http://t.me/lalaypo_bot" target="_blank" className="bg-white text-black px-10 py-4 rounded-full font-black uppercase text-xs">CREATE/LOGIN BOT</a>
@@ -78,12 +102,15 @@ export default function YaeMikoDashboard() {
         </div>
       )}
 
-      {/* 3. OVERLAY LIMIT HABIS (With Bot Link) */}
+      {/* 3. OVERLAY LIMIT ABIS (With Bot Link) */}
       {showLimitPopup && (
         <div className="fixed inset-0 z-[999] bg-black/95 flex flex-col items-center justify-center p-6 text-center">
            <AlertTriangle className="w-16 h-16 text-red-500 mb-6" />
-           <h2 className="text-white font-black text-2xl mb-8 uppercase italic">LIMIT ABIS NGENTOD</h2>
-           <a href="http://t.me/lalaypo_bot" target="_blank" className="bg-white text-black px-10 py-4 rounded-full font-black uppercase text-xs">PREMIUM KE BOT</a>
+           <h2 className="text-white font-black text-2xl mb-4 uppercase italic">LIMIT ABIS NGENTOD</h2>
+           <a href="http://t.me/lalaypo_bot" target="_blank" className="bg-white text-black px-8 py-3 rounded-full font-black uppercase text-xs mb-6">PREMIUM KE BOT</a>
+           <div className="flex items-center gap-2 text-yellow-400 font-black text-[10px] uppercase italic">
+             <Timer className="w-4 h-4" /> <span>RESET 24 JAM</span>
+           </div>
         </div>
       )}
 
@@ -96,7 +123,7 @@ export default function YaeMikoDashboard() {
         </div>
       )}
 
-      {/* --- UI UTAMA --- */}
+      {/* UI UTAMA */}
       {!isLoggedIn ? (
         <div className="flex flex-col items-center justify-center min-h-screen p-6">
           <h1 className="text-4xl font-black italic uppercase mb-12">YAE MIKO</h1>
@@ -114,13 +141,11 @@ export default function YaeMikoDashboard() {
                <div className="bg-[#0a1628] rounded-[2rem] p-8 mb-6 text-center"><h2 className="text-2xl font-black uppercase italic">{BUG_TYPES[activeNav].name}</h2></div>
                <input value={targetNumber} onChange={(e) => setTargetNumber(e.target.value)} className="w-full bg-[#0a1628] border border-white/10 p-4 rounded-xl mb-6 text-sm" />
                <button onClick={handleSendBug} className="w-full py-6 bg-white text-black rounded-[2rem] font-black uppercase italic text-xs">KIRIM BUG</button>
+               <div className="flex justify-center gap-2 mt-8">{BUG_TYPES.map((_, i) => (<button key={i} onClick={() => setActiveNav(i)} className={`h-1.5 transition-all rounded-full ${activeNav === i ? 'w-8 bg-cyan-400' : 'w-1.5 bg-slate-800'}`} />))}</div>
              </>
           ) : (
              <div className="flex-1">
                <h2 className="text-2xl font-black uppercase italic mb-8">SETTINGS</h2>
-               <div className="bg-[#0a1628] p-6 rounded-[2rem] mb-4">
-                 <button onClick={() => setShowPairModal(true)} className="w-full py-3 bg-white text-black rounded-xl font-black uppercase text-[10px]">LINK WA</button>
-               </div>
                <button onClick={() => setIsLoggedIn(false)} className="w-full py-4 bg-red-500/10 text-red-500 rounded-2xl font-black uppercase text-[10px]">LOGOUT</button>
              </div>
           )}
@@ -132,4 +157,4 @@ export default function YaeMikoDashboard() {
       )}
     </div>
   )
-}
+    }
