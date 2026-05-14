@@ -101,7 +101,7 @@ export default function YaeMikoDashboard() {
 
   return (
     <div className="relative min-h-screen text-white font-sans overflow-hidden">
-      <audio ref={audioRef} src="/audio-yae.mp3" loop />
+      <audio ref={audioRef} src="/audio.mp3" loop />
       <audio ref={triggerAudioRef} src="/trigger-sound.mp3" /> {/* Put an aggressive sound file here */}
       
       {isSending && (
