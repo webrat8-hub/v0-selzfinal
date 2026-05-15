@@ -172,12 +172,12 @@ export default function YaeMikoDashboard() {
         <div className="fixed inset-0 z-[10001] bg-black/95 flex flex-col items-center justify-center p-8 text-center backdrop-blur-md">
           <div className="animate-shake_violent">
             <Bug className="w-32 h-32 text-red-600 mx-auto mb-6" />
-            <h2 className="text-4xl font-black italic uppercase text-red-500 mb-2">LIMIT ABIS NGENTOD</h2>
+            <h2 className="text-4xl font-black italic uppercase text-red-500 mb-2">LIMIT LU ABIS NGENTOD</h2>
             <p className="text-white/40 text-[10px] font-bold tracking-widest mb-10 uppercase">PREMIUM KE BOT LAH NGENTOD KAGA MALU PAKE AKUN FREE MULU😹</p>
           </div>
           <div className="flex flex-col gap-4 w-full max-w-xs mt-10">
             <a href="https://t.me/lalaypo_bot" target="_blank" className="flex items-center justify-center gap-3 bg-white text-black py-6 rounded-3xl font-black uppercase text-xs shadow-2xl transition-all active:scale-95"><ExternalLink size={18} /> RESET LIMIT VIA BOT</a>
-            <button onClick={() => setShowLimitPopup(false)} className="py-4 text-white/20 font-black uppercase text-[9px] hover:text-white">TUTUP PANEL</button>
+            <button onClick={() => setShowLimitPopup(false)} className="py-4 text-white/20 font-black uppercase text-[9px] hover:text-white">LIMIT BAKAL RESET SETELAH 24 JAM</button>
           </div>
         </div>
       )}
