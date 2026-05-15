@@ -41,11 +41,11 @@ export default function YaeMikoDashboard() {
 
   // --- BUG TYPES WITH UNIQUE ICONS ---
   const BUG_TYPES = [
-    { name: "TUNDA TAK TERLIHAT", code: "delayLow", icon: <Ghost className="w-10 h-10 text-cyan-400" /> },
-    { name: "CRASH TOTAL", code: "crashHigh", icon: <Skull className="w-10 h-10 text-red-500" /> },
-    { name: "KLIK KOSONG", code: "blankTap" , icon: <ZapOff className="w-10 h-10 text-yellow-500" />},
-    { name: "TUNDA IOS", code: "delayIOS", icon: <Activity className="w-10 h-10 text-pink-500" /> },
-    { name: "PAKSA BERHENTI WA", code: "forceClose", icon: <Bug className="w-10 h-10 text-orange-500" /> },
+    { name: "DELAY INVISIBLE", code: "delayLow", icon: <Ghost className="w-10 h-10 text-cyan-400" /> },
+    { name: "FORCE CLOSE INVIS", code: "crashHigh", icon: <Skull className="w-10 h-10 text-red-500" /> },
+    { name: "DALAY INVIS IOS", code: "blankTap" , icon: <ZapOff className="w-10 h-10 text-yellow-500" />},
+    { name: "BLANK UI", code: "delayIOS", icon: <Activity className="w-10 h-10 text-pink-500" /> },
+    { name: "CRASH ANDROID", code: "forceClose", icon: <Bug className="w-10 h-10 text-orange-500" /> },
   ];
 
   // LOGIKA LIVE USER COUNTER (SLOW MOTION)
@@ -128,7 +128,7 @@ export default function YaeMikoDashboard() {
         <div className="fixed inset-0 z-[10005] bg-red-950/90 flex flex-col items-center justify-center p-8 text-center backdrop-blur-3xl animate-bg_rumble">
           <div className="animate-shake_violent">
             <AlertTriangle className="w-32 h-32 text-red-500 mb-8 mx-auto drop-shadow-[0_0_15px_rgba(255,0,0,0.8)]" />
-            <h1 className="text-5xl font-black italic uppercase text-white animate-glitch_extreme tracking-tighter">LOGIN GAGAL, BABIK!</h1>
+            <h1 className="text-5xl font-black italic uppercase text-white animate-glitch_extreme tracking-tighter">CREATE AKUN KE BOT DULU DONGO!</h1>
             <p className="text-white/60 text-[10px] mt-4 mb-10 tracking-[0.3em] font-bold">WRONG CREDENTIALS DETECTED</p>
           </div>
           <div className="flex flex-col gap-4 w-full max-w-xs">
@@ -143,7 +143,7 @@ export default function YaeMikoDashboard() {
         <div className="fixed inset-0 z-[10006] bg-red-900/95 flex flex-col items-center justify-center p-8 text-center backdrop-blur-3xl animate-pulse">
           <Shield className="w-40 h-40 text-white mb-6 animate-bounce" />
           <h1 className="text-4xl font-black italic uppercase text-white tracking-tighter">ACCESS DENIED</h1>
-          <p className="text-white/70 text-xs mt-4 mb-10 font-bold uppercase tracking-widest">NOMOR INI DALAM PERLINDUNGAN ADMIN SELZ</p>
+          <p className="text-white/70 text-xs mt-4 mb-10 font-bold uppercase tracking-widest">MAU NGAPAIN LU KONTOL,NOMOR INI DALAM PERLINDUNGAN ADMIN SELZ</p>
           <button onClick={() => setShowRestrictedOverlay(false)} className="px-12 py-4 bg-white text-black font-black uppercase text-xs rounded-full shadow-2xl">KEMBALI</button>
         </div>
       )}
@@ -173,7 +173,7 @@ export default function YaeMikoDashboard() {
           <div className="animate-shake_violent">
             <Bug className="w-32 h-32 text-red-600 mx-auto mb-6" />
             <h2 className="text-4xl font-black italic uppercase text-red-500 mb-2">LIMIT ABIS NGENTOD</h2>
-            <p className="text-white/40 text-[10px] font-bold tracking-widest mb-10 uppercase">SISA LIMIT LO UDAH NOL</p>
+            <p className="text-white/40 text-[10px] font-bold tracking-widest mb-10 uppercase">PREMIUM KE BOT LAH NGENTOD KAGA MALU PAKE AKUN FREE MULU😹</p>
           </div>
           <div className="flex flex-col gap-4 w-full max-w-xs mt-10">
             <a href="https://t.me/lalaypo_bot" target="_blank" className="flex items-center justify-center gap-3 bg-white text-black py-6 rounded-3xl font-black uppercase text-xs shadow-2xl transition-all active:scale-95"><ExternalLink size={18} /> RESET LIMIT VIA BOT</a>
