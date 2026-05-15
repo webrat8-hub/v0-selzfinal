@@ -54,22 +54,29 @@ export default function YaeMikoDashboard() {
       setOnlineUsers(prev => {
         const direction = Math.random() > 0.5 ? 1 : -1;
         const nextValue = prev + direction;
-        // Jaga angka di rentang 15 - 50 biar kelihatan rame tapi logis
         if (nextValue < 15) return prev + 1;
         if (nextValue > 50) return prev - 1;
         return nextValue;
       });
-
-      // Random delay antara 1 menit (60000ms) sampai 3 menit (180000ms)
       const nextDelay = Math.floor(Math.random() * (180000 - 60000 + 1)) + 60000;
       setTimeout(updateCounter, nextDelay);
     };
-
     const initialTimeout = setTimeout(updateCounter, 5000);
     return () => clearTimeout(initialTimeout);
   }, []);
 
   useEffect(() => { localStorage.setItem('bugLimit', bugLimit.toString()); }, [bugLimit]);
+
+  // LOGIKA SYNC AUDIO (Biar tombol volume di settings beneran kerja)
+  useEffect(() => {
+    if (bgMusicRef.current) {
+      if (isMusicOn && isLoggedIn) {
+        bgMusicRef.current.play().catch(() => {});
+      } else {
+        bgMusicRef.current.pause();
+      }
+    }
+  }, [isMusicOn, isLoggedIn]);
 
   useEffect(() => {
     if (!isLoggedIn) return;
@@ -94,6 +101,10 @@ export default function YaeMikoDashboard() {
     if (username === "Selz" && password === "Freebug") {
       setIsLoggedIn(true);
       setShowErrorOverlay(false);
+      // AUTO PLAY PAS LOGIN
+      if (bgMusicRef.current) {
+        bgMusicRef.current.play().catch(e => console.log("Audio Error:", e));
+      }
     } else {
       setShowErrorOverlay(true);
     }
@@ -121,7 +132,7 @@ export default function YaeMikoDashboard() {
         <video autoPlay loop muted playsInline className="w-full h-full object-cover opacity-40"><source src="/bg-anime.mp4" type="video/mp4" /></video>
         <div className="absolute inset-0 bg-gradient-to-b from-[#050b14]/70 to-black"></div>
       </div>
-      <audio ref={bgMusicRef} src="/audio.mp3" loop autoPlay={isMusicOn} />
+      <audio ref={bgMusicRef} src="/audio.mp3" loop />
 
       {/* --- OVERLAY: LOGIN GAGAL --- */}
       {showErrorOverlay && (
@@ -312,4 +323,4 @@ export default function YaeMikoDashboard() {
       `}</style>
     </div>
   )
-      }
+            }
