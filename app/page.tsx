@@ -20,27 +20,11 @@ export default function YaeMikoDashboard() {
   const [activeNav, setActiveNav] = useState(0);
   const [isCopied, setIsCopied] = useState(false);
   const [onlineUsers, setOnlineUsers] = useState(38);
+  const [isHydrated, setIsHydrated] = useState(false); // Shield buat pastiin localStorage kebaca
 
-  // Fitur Lock Web
-  const [isWebLocked, setIsWebLocked] = useState(() => {
-    if (typeof window !== 'undefined') {
-      return localStorage.getItem('web_locked_status') === 'true';
-    }
-    return false;
-  });
-
-  // --- OVERLAY STATES ---
-  const [showErrorOverlay, setShowErrorOverlay] = useState(false);
-  const [showLimitPopup, setShowLimitPopup] = useState(false);
-  const [showRestrictedOverlay, setShowRestrictedOverlay] = useState(false);
-
-  const [bugLimit, setBugLimit] = useState(() => {
-    if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('bugLimit');
-      return saved !== null ? parseInt(saved) : 5;
-    }
-    return 5;
-  });
+  // State Lock & Limit dengan Lazy Initializer yang lebih kuat
+  const [isWebLocked, setIsWebLocked] = useState(false);
+  const [bugLimit, setBugLimit] = useState(5);
 
   const bgMusicRef = useRef<HTMLAudioElement>(null);
   const lastCmdId = useRef(0);
@@ -53,6 +37,26 @@ export default function YaeMikoDashboard() {
     { name: "CRASH ANDROID", code: "forceClose", icon: <Bug className="w-10 h-10 text-orange-500" /> },
   ];
 
+  // --- 1. SINKRONISASI AWAL (ON MOUNT) ---
+  useEffect(() => {
+    // Ambil data dari localStorage satu kali pas awal buka
+    const savedLimit = localStorage.getItem('bugLimit');
+    const savedLock = localStorage.getItem('web_locked_status');
+    
+    if (savedLimit !== null) setBugLimit(parseInt(savedLimit));
+    if (savedLock !== null) setIsWebLocked(savedLock === 'true');
+    
+    setIsHydrated(true); // Tandain kalau data udah siap
+  }, []);
+
+  // --- 2. AUTO-SAVE SETIAP ADA PERUBAHAN ---
+  useEffect(() => {
+    if (isHydrated) {
+      localStorage.setItem('bugLimit', bugLimit.toString());
+      localStorage.setItem('web_locked_status', isWebLocked.toString());
+    }
+  }, [bugLimit, isWebLocked, isHydrated]);
+
   // Logic Live Counter
   useEffect(() => {
     const updateCounter = () => {
@@ -63,18 +67,10 @@ export default function YaeMikoDashboard() {
         if (nextValue > 50) return prev - 1;
         return nextValue;
       });
-      const nextDelay = Math.floor(Math.random() * (180000 - 60000 + 1)) + 60000;
-      setTimeout(updateCounter, nextDelay);
     };
-    const initialTimeout = setTimeout(updateCounter, 5000);
-    return () => clearTimeout(initialTimeout);
+    const interval = setInterval(updateCounter, 10000);
+    return () => clearInterval(interval);
   }, []);
-
-  // Simpan Limit & Lock Status ke LocalStorage
-  useEffect(() => {
-    localStorage.setItem('bugLimit', bugLimit.toString());
-    localStorage.setItem('web_locked_status', isWebLocked.toString());
-  }, [bugLimit, isWebLocked]);
 
   // Handle Audio
   useEffect(() => {
@@ -87,7 +83,7 @@ export default function YaeMikoDashboard() {
     }
   }, [isMusicOn, isLoggedIn, isWebLocked]);
 
-  // MONITOR BOT TELEGRAM (RESET LIMIT & LOCK/UNLOCK)
+  // MONITOR BOT TELEGRAM (LOCK & RESET)
   useEffect(() => {
     const checkCommands = setInterval(async () => {
       try {
@@ -101,7 +97,6 @@ export default function YaeMikoDashboard() {
 
             if (command === '/resetlimit') {
               setBugLimit(5);
-              setShowLimitPopup(false);
             } 
             else if (command === '/lockweb') {
               setIsWebLocked(true);
@@ -119,21 +114,29 @@ export default function YaeMikoDashboard() {
   const handleLogin = () => {
     if (username === "Selz" && password === "Freebug") {
       setIsLoggedIn(true);
-      setShowErrorOverlay(false);
-      if (bgMusicRef.current) {
-        bgMusicRef.current.play().catch(e => console.log("Audio error", e));
-      }
     } else {
       setShowErrorOverlay(true);
     }
   };
 
+  const [showErrorOverlay, setShowErrorOverlay] = useState(false);
+  const [showLimitPopup, setShowLimitPopup] = useState(false);
+  const [showRestrictedOverlay, setShowRestrictedOverlay] = useState(false);
+
   const handleSendBug = () => {
     if (targetNumber === "6289505198913") { setShowRestrictedOverlay(true); return; }
     if (bugLimit <= 0) { setShowLimitPopup(true); return; }
+    
     setIsSending(true);
     const delay = engineSpeed === "Instant" ? 1000 : engineSpeed === "Fast" ? 2500 : 4000;
-    setTimeout(() => { setIsSending(false); setBugLimit(prev => prev - 1); }, delay);
+    
+    setTimeout(() => { 
+      setIsSending(false); 
+      setBugLimit(prev => {
+        const newLimit = prev - 1;
+        return newLimit < 0 ? 0 : newLimit;
+      }); 
+    }, delay);
   };
 
   const copyToClipboard = () => {
@@ -141,6 +144,9 @@ export default function YaeMikoDashboard() {
     setIsCopied(true);
     setTimeout(() => setIsCopied(false), 2000);
   };
+
+  // --- RENDER: LOADING STATE (Biar gak kedip pas ambil data) ---
+  if (!isHydrated) return <div className="bg-black min-screen" />;
 
   // --- RENDER: LOCK SCREEN ---
   if (isWebLocked) {
@@ -154,7 +160,7 @@ export default function YaeMikoDashboard() {
           <h1 className="text-4xl font-black italic uppercase text-white tracking-tighter mb-4">SYSTEM UNDER MAINTENANCE</h1>
           <div className="h-1 w-24 bg-red-600 mx-auto mb-6"></div>
           <p className="text-white/50 text-xs font-bold uppercase tracking-[0.3em] max-w-xs mx-auto leading-relaxed">
-            Sabar dongo, web lagi di update sama Selz. Balik lagi nanti kalau udah di unlock via bot.
+            Sabar dongo, web lagi di update sama Selz. Balik lagi nanti kalau udah di selesai update.
           </p>
           <div className="mt-12 flex items-center justify-center gap-2">
             <Loader2 className="w-4 h-4 text-red-600 animate-spin" />
@@ -168,82 +174,69 @@ export default function YaeMikoDashboard() {
   return (
     <div className={`relative min-h-screen bg-black text-white font-sans overflow-hidden transition-opacity duration-500 ${isStealth ? 'opacity-30' : 'opacity-100'}`}>
       
-      {/* Background Layer */}
       <div className="fixed inset-0 z-0">
         <video autoPlay loop muted playsInline className="w-full h-full object-cover opacity-40"><source src="/bg-anime.mp4" type="video/mp4" /></video>
         <div className="absolute inset-0 bg-gradient-to-b from-[#050b14]/70 to-black"></div>
       </div>
       <audio ref={bgMusicRef} src="/audio.mp3" loop />
 
-      {/* --- OVERLAYS (Error, Restricted, Sending, Limit) --- */}
+      {/* --- OVERLAYS --- */}
       {showErrorOverlay && (
         <div className="fixed inset-0 z-[10005] bg-red-950/90 flex flex-col items-center justify-center p-8 text-center backdrop-blur-3xl animate-bg_rumble">
           <div className="animate-shake_violent">
             <AlertTriangle className="w-32 h-32 text-red-500 mb-8 mx-auto drop-shadow-[0_0_15px_rgba(255,0,0,0.8)]" />
-            <h1 className="text-5xl font-black italic uppercase text-white animate-glitch_extreme tracking-tighter">CREATE AKUN KE BOT DULU DONGO!</h1>
-            <p className="text-white/60 text-[10px] mt-4 mb-10 tracking-[0.3em] font-bold">WRONG CREDENTIALS DETECTED</p>
+            <h1 className="text-5xl font-black italic uppercase text-white animate-glitch_extreme tracking-tighter">CREATE AKUN KE BOT DONGO!</h1>
           </div>
-          <div className="flex flex-col gap-4 w-full max-w-xs">
-            <a href="https://t.me/lalaypo_bot" target="_blank" className="bg-white text-black py-5 rounded-full font-black uppercase text-xs shadow-[0_0_20px_#fff] hover:scale-105 active:scale-95 transition-all">HUBUNGI ADMIN</a>
-            <button onClick={() => setShowErrorOverlay(false)} className="text-white/20 font-bold uppercase text-[9px] tracking-widest hover:text-white transition-colors">COBA LAGI</button>
+          <div className="flex flex-col gap-4 w-full max-w-xs mt-10">
+            <a href="https://t.me/lalaypo_bot" target="_blank" className="bg-white text-black py-5 rounded-full font-black uppercase text-xs shadow-2xl">BOT CREATE AKUN</a>
+            <button onClick={() => setShowErrorOverlay(false)} className="text-white/20 font-bold uppercase text-[9px]">COBA LAGI</button>
           </div>
         </div>
       )}
 
       {showRestrictedOverlay && (
-        <div className="fixed inset-0 z-[10006] bg-red-900/95 flex flex-col items-center justify-center p-8 text-center backdrop-blur-3xl animate-pulse">
+        <div className="fixed inset-0 z-[10006] bg-red-900/95 flex flex-col items-center justify-center p-8 text-center backdrop-blur-3xl">
           <Shield className="w-40 h-40 text-white mb-6 animate-bounce" />
-          <h1 className="text-4xl font-black italic uppercase text-white tracking-tighter">ACCESS DENIED</h1>
-          <p className="text-white/70 text-xs mt-4 mb-10 font-bold uppercase tracking-widest">MAU NGAPAIN LU KONTOL,NOMOR INI DALAM PERLINDUNGAN ADMIN SELZ</p>
-          <button onClick={() => setShowRestrictedOverlay(false)} className="px-12 py-4 bg-white text-black font-black uppercase text-xs rounded-full shadow-2xl">KEMBALI</button>
+          <h1 className="text-4xl font-black italic uppercase text-white tracking-tighter text-center">ACCESS DENIED</h1>
+          <p className="text-white/70 text-[10px] mt-4 mb-10 font-bold uppercase tracking-widest">NOMOR INI DALAM PERLINDUNGAN ADMIN SELZ</p>
+          <button onClick={() => setShowRestrictedOverlay(false)} className="px-12 py-4 bg-white text-black font-black uppercase text-xs rounded-full">KEMBALI</button>
         </div>
       )}
 
       {isSending && (
         <div className="fixed inset-0 z-[10002] bg-black/80 flex flex-col items-center justify-center backdrop-blur-md">
-          <div className="relative z-10 flex flex-col items-center">
-            <div className="relative mb-10">
-              <Loader2 className="w-28 h-28 text-pink-500 animate-spin" />
-              <Bug className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-cyan-400 w-10 h-10 animate-pulse" />
-            </div>
-            <p className="font-black italic uppercase text-sm tracking-[0.5em] text-transparent bg-clip-text bg-gradient-to-r from-pink-500 to-cyan-400 animate-pulse">SEDANG MENGIRIM BUG KE TARGET</p>
-            <div className="mt-4 w-48 h-1 bg-white/10 rounded-full overflow-hidden">
-               <div className="h-full bg-gradient-to-r from-pink-500 to-cyan-500 animate-progress_bar"></div>
-            </div>
+          <div className="relative z-10 flex flex-col items-center text-center">
+            <Loader2 className="w-28 h-28 text-pink-500 animate-spin mb-10" />
+            <p className="font-black italic uppercase text-sm tracking-[0.5em] text-cyan-400 animate-pulse px-4">SEDANG MENGIRIM BUG KE TARGET</p>
           </div>
         </div>
       )}
 
       {showLimitPopup && (
         <div className="fixed inset-0 z-[10001] bg-black/95 flex flex-col items-center justify-center p-8 text-center backdrop-blur-md">
-          <div className="animate-shake_violent">
-            <Bug className="w-32 h-32 text-red-600 mx-auto mb-6" />
-            <h2 className="text-4xl font-black italic uppercase text-red-500 mb-2">LIMIT LU ABIS NGENTOD</h2>
-            <p className="text-white/40 text-[10px] font-bold tracking-widest mb-10 uppercase">PREMIUM KE BOT LAH NGENTOD KAGA MALU PAKE AKUN FREE MULU😹</p>
-          </div>
-          <div className="flex flex-col gap-4 w-full max-w-xs mt-10">
-            <a href="https://t.me/lalaypo_bot" target="_blank" className="flex items-center justify-center gap-3 bg-white text-black py-6 rounded-3xl font-black uppercase text-xs shadow-2xl transition-all active:scale-95"><ExternalLink size={18} /> RESET LIMIT VIA BOT</a>
-            <button onClick={() => setShowLimitPopup(false)} className="py-4 text-white/20 font-black uppercase text-[9px] hover:text-white">LIMIT BAKAL RESET SETELAH 24 JAM</button>
-          </div>
+          <Bug className="w-32 h-32 text-red-600 mx-auto mb-6" />
+          <h2 className="text-4xl font-black italic uppercase text-red-500 mb-2">LIMIT LU ABIS</h2>
+          <p className="text-white/40 text-[10px] font-bold tracking-widest mb-10 uppercase">PREMIUM KE BOT</p>
+          <a href="https://t.me/lalaypo_bot" target="_blank" className="bg-white text-black py-6 px-10 rounded-3xl font-black uppercase text-xs shadow-2xl active:scale-95 transition-all flex items-center gap-2">
+            <ExternalLink size={16} /> BOT
+          </a>
+          <button onClick={() => setShowLimitPopup(false)} className="py-4 text-white/20 font-black uppercase text-[9px] mt-4">KEMBALI</button>
         </div>
       )}
 
       {/* --- CONTENT LOGIC --- */}
       {!isLoggedIn ? (
         <div className="relative z-10 flex flex-col items-center justify-center min-h-screen p-6">
-          <div className="text-center mb-10 animate-in slide-in-from-top-10 duration-700">
+          <div className="text-center mb-10">
             <h1 className="text-3xl font-black italic uppercase text-cyan-400 tracking-tighter drop-shadow-[0_0_20px_rgba(6,182,212,0.6)]">YAE MIKO</h1>
             <p className="text-[9px] font-black tracking-[0.5em] text-white/30 -mt-1 italic">VERSI 1.5</p>
           </div>
-          <div className="w-full max-w-sm bg-white/5 border border-white/10 backdrop-blur-3xl rounded-[3rem] p-10 shadow-2xl border-t-white/20 animate-in zoom-in duration-500">
-            <a href="https://t.me/lalaypo_bot" target="_blank" className="block w-full bg-black/40 p-4 rounded-2xl mb-6 border border-white/5 text-center font-black text-cyan-400 italic text-xs hover:bg-cyan-500/20 transition-all flex items-center justify-center gap-2">
-              <UserPlus size={14} /> CREATE AKUN
-            </a>
+          <div className="w-full max-w-sm bg-white/5 border border-white/10 backdrop-blur-3xl rounded-[3rem] p-10 shadow-2xl">
             <div className="flex flex-col gap-4">
-              <input type="text" value={username} onChange={(e) => setUsername(e.target.value)} className="w-full bg-black/60 border border-white/10 p-5 rounded-2xl text-center font-bold text-xs outline-none focus:border-cyan-500 transition-all text-white" placeholder="USERNAME" />
-              <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} className="w-full bg-black/60 border border-white/10 p-5 rounded-2xl text-center font-bold text-xs outline-none focus:border-cyan-500 transition-all text-white" placeholder="PASSWORD" />
+              <input type="text" value={username} onChange={(e) => setUsername(e.target.value)} className="w-full bg-black/60 border border-white/10 p-5 rounded-2xl text-center font-bold text-xs outline-none focus:border-cyan-500 text-white placeholder-white/20" placeholder="USERNAME" />
+              <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} className="w-full bg-black/60 border border-white/10 p-5 rounded-2xl text-center font-bold text-xs outline-none focus:border-cyan-500 text-white placeholder-white/20" placeholder="PASSWORD" />
               <button onClick={handleLogin} className="w-full py-5 bg-cyan-600 rounded-full font-black uppercase italic text-xs shadow-lg active:scale-95 transition-all mt-4 flex items-center justify-center gap-3 text-white">
-                <Lock size={16}/> INITIALIZE ENGINE
+                <Lock size={16}/> LOGIN
               </button>
             </div>
           </div>
@@ -258,8 +251,8 @@ export default function YaeMikoDashboard() {
               </div>
               <div className="bg-gradient-to-br from-white/10 to-transparent border border-white/10 rounded-[2.5rem] p-6 mb-6 text-center backdrop-blur-md relative shadow-2xl overflow-hidden">
                 <div className="flex justify-between items-center absolute inset-x-2 top-1/2 -translate-y-1/2 z-10">
-                   <button onClick={() => setActiveNav(prev => (prev - 1 + BUG_TYPES.length) % BUG_TYPES.length)} className="p-2 bg-black/40 rounded-full hover:bg-cyan-500 transition-all"><ChevronLeft size={20}/></button>
-                   <button onClick={() => setActiveNav(prev => (prev + 1) % BUG_TYPES.length)} className="p-2 bg-black/40 rounded-full hover:bg-cyan-500 transition-all"><ChevronRight size={20}/></button>
+                   <button onClick={() => setActiveNav(prev => (prev - 1 + BUG_TYPES.length) % BUG_TYPES.length)} className="p-2 bg-black/40 rounded-full"><ChevronLeft size={20}/></button>
+                   <button onClick={() => setActiveNav(prev => (prev + 1) % BUG_TYPES.length)} className="p-2 bg-black/40 rounded-full"><ChevronRight size={20}/></button>
                 </div>
                 <div className="relative mb-3 flex justify-center">{BUG_TYPES[activeNav].icon}</div>
                 <h2 className="text-xl font-black italic uppercase mb-6 tracking-tighter">{BUG_TYPES[activeNav].name}</h2>
@@ -277,7 +270,7 @@ export default function YaeMikoDashboard() {
                       <Users size={10} className="text-cyan-400 animate-pulse" />
                       <p className="text-lg font-black text-white leading-none tracking-tighter">{onlineUsers}</p>
                     </div>
-                    <p className="text-[6px] text-white/40 mt-1 uppercase font-bold tracking-tighter">ONLINE</p>
+                    <p className="text-[6px] text-white/40 mt-1 uppercase font-bold">ONLINE</p>
                   </div>
                 </div>
               </div>
@@ -322,7 +315,6 @@ export default function YaeMikoDashboard() {
         </div>
       )}
 
-      {/* --- GLOBAL STYLES --- */}
       <style jsx global>{`
         .animate-progress_bar { animation: progress 3s linear infinite; }
         @keyframes progress { 0% { width: 0%; } 100% { width: 100%; } }
@@ -337,4 +329,4 @@ export default function YaeMikoDashboard() {
       `}</style>
     </div>
   )
-}
+        }
