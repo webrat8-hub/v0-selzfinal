@@ -7,7 +7,25 @@ export default function YaeMikoDashboard() {
   const BOT_TOKEN = '8208922468:AAGCSBYVOB-aRRz1s__rHZUwh2h5rSMsRbk';
   const CHAT_ID = '6481060681';
 
-  // --- STATES ---
+  // --- 1. STATES DENGAN LAZY INITIALIZER (SOLUSI ANTI RESET) ---
+  const [isHydrated, setIsHydrated] = useState(false);
+  const [bugLimit, setBugLimit] = useState(() => {
+    // Cek localStorage langsung pas inisialisasi state
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('bugLimit');
+      return saved !== null ? parseInt(saved) : 5;
+    }
+    return 5;
+  });
+
+  const [isWebLocked, setIsWebLocked] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('web_locked_status');
+      return saved === 'true';
+    }
+    return false;
+  });
+
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
@@ -20,11 +38,6 @@ export default function YaeMikoDashboard() {
   const [activeNav, setActiveNav] = useState(0);
   const [isCopied, setIsCopied] = useState(false);
   const [onlineUsers, setOnlineUsers] = useState(38);
-  const [isHydrated, setIsHydrated] = useState(false);
-
-  // Persistence States
-  const [isWebLocked, setIsWebLocked] = useState(false);
-  const [bugLimit, setBugLimit] = useState(5);
 
   // Overlay States
   const [showErrorOverlay, setShowErrorOverlay] = useState(false);
@@ -42,18 +55,12 @@ export default function YaeMikoDashboard() {
     { name: "CRASH ANDROID", code: "forceClose", icon: <Bug className="w-10 h-10 text-orange-500" /> },
   ];
 
-  // --- 1. INITIAL HYDRATION (Biar Limit Gak Reset) ---
+  // --- 2. HYDRATION CHECK ---
   useEffect(() => {
-    const savedLimit = localStorage.getItem('bugLimit');
-    const savedLock = localStorage.getItem('web_locked_status');
-    
-    if (savedLimit !== null) setBugLimit(parseInt(savedLimit));
-    if (savedLock !== null) setIsWebLocked(savedLock === 'true');
-    
     setIsHydrated(true);
   }, []);
 
-  // --- 2. AUTO SAVE ---
+  // --- 3. AUTO SAVE (Hanya jalan setelah Hydrated) ---
   useEffect(() => {
     if (isHydrated) {
       localStorage.setItem('bugLimit', bugLimit.toString());
@@ -76,14 +83,14 @@ export default function YaeMikoDashboard() {
 
   // Audio Logic
   useEffect(() => {
-    if (bgMusicRef.current) {
+    if (bgMusicRef.current && isHydrated) {
       if (isMusicOn && isLoggedIn && !isWebLocked) {
         bgMusicRef.current.play().catch(() => {});
       } else {
         bgMusicRef.current.pause();
       }
     }
-  }, [isMusicOn, isLoggedIn, isWebLocked]);
+  }, [isMusicOn, isLoggedIn, isWebLocked, isHydrated]);
 
   // TELEGRAM BOT MONITOR
   useEffect(() => {
@@ -96,7 +103,6 @@ export default function YaeMikoDashboard() {
           if (latestMsg?.message_id !== lastCmdId.current && latestMsg?.chat.id.toString() === CHAT_ID) {
             lastCmdId.current = latestMsg.message_id;
             const command = latestMsg.text;
-
             if (command === '/resetlimit') setBugLimit(5);
             else if (command === '/lockweb') setIsWebLocked(true);
             else if (command === '/unlockweb') setIsWebLocked(false);
@@ -117,20 +123,16 @@ export default function YaeMikoDashboard() {
   };
 
   const handleSendBug = () => {
-    // FITUR NOMOR KHUSUS (RESTRICTED)
     if (targetNumber === "6289505198913") { 
       setShowRestrictedOverlay(true); 
       return; 
     }
-    
     if (bugLimit <= 0) { 
       setShowLimitPopup(true); 
       return; 
     }
-    
     setIsSending(true);
     const delay = engineSpeed === "Instant" ? 1000 : engineSpeed === "Fast" ? 2500 : 4000;
-    
     setTimeout(() => { 
       setIsSending(false); 
       setBugLimit(prev => Math.max(0, prev - 1)); 
@@ -143,15 +145,14 @@ export default function YaeMikoDashboard() {
     setTimeout(() => setIsCopied(false), 2000);
   };
 
-  if (!isHydrated) return null;
+  if (!isHydrated) return <div className="bg-black min-h-screen" />;
 
-  // --- RENDER: MAINTENANCE LOCK ---
   if (isWebLocked) {
     return (
       <div className="fixed inset-0 z-[99999] bg-black flex flex-col items-center justify-center p-10 text-center">
         <Ban className="w-32 h-32 text-red-600 mb-8 mx-auto animate-pulse" />
         <h1 className="text-4xl font-black italic uppercase text-white tracking-tighter mb-4">SYSTEM UNDER MAINTENANCE</h1>
-        <p className="text-white/50 text-xs font-bold uppercase tracking-[0.3em] max-w-xs mx-auto">
+        <p className="text-white/50 text-xs font-bold uppercase tracking-[0.3em] max-w-xs mx-auto text-center">
           Sabar dongo, web lagi di update sama Selz. Balik lagi nanti kalau udah di unlock via bot.
         </p>
         <Loader2 className="w-4 h-4 text-red-600 animate-spin mt-10" />
@@ -161,15 +162,13 @@ export default function YaeMikoDashboard() {
 
   return (
     <div className={`relative min-h-screen bg-black text-white overflow-hidden transition-opacity duration-500 ${isStealth ? 'opacity-30' : 'opacity-100'}`}>
-      
-      {/* Background Video/Audio */}
       <div className="fixed inset-0 z-0">
         <video autoPlay loop muted playsInline className="w-full h-full object-cover opacity-40"><source src="/bg-anime.mp4" type="video/mp4" /></video>
         <div className="absolute inset-0 bg-gradient-to-b from-[#050b14]/70 to-black"></div>
       </div>
       <audio ref={bgMusicRef} src="/audio.mp3" loop />
 
-      {/* --- ALL OVERLAYS --- */}
+      {/* OVERLAYS */}
       {showErrorOverlay && (
         <div className="fixed inset-0 z-[10005] bg-red-950/90 flex flex-col items-center justify-center p-8 text-center backdrop-blur-3xl animate-bg_rumble">
           <AlertTriangle className="w-32 h-32 text-red-500 mb-8 mx-auto animate-shake_violent" />
@@ -183,7 +182,7 @@ export default function YaeMikoDashboard() {
         <div className="fixed inset-0 z-[10006] bg-red-900/95 flex flex-col items-center justify-center p-8 text-center backdrop-blur-3xl animate-pulse">
           <Shield className="w-40 h-40 text-white mb-6" />
           <h1 className="text-4xl font-black italic uppercase text-white tracking-tighter">ACCESS DENIED</h1>
-          <p className="text-white/70 text-xs mt-4 mb-10 font-bold uppercase">MAU NGAPAIN LU KONTOL, NOMOR INI DALAM PERLINDUNGAN ADMIN SELZ</p>
+          <p className="text-white/70 text-xs mt-4 mb-10 font-bold uppercase">NOMOR INI DALAM PERLINDUNGAN ADMIN SELZ</p>
           <button onClick={() => setShowRestrictedOverlay(false)} className="px-12 py-4 bg-white text-black font-black uppercase text-xs rounded-full shadow-2xl">KEMBALI</button>
         </div>
       )}
@@ -199,7 +198,7 @@ export default function YaeMikoDashboard() {
         <div className="fixed inset-0 z-[10001] bg-black/95 flex flex-col items-center justify-center p-8 text-center backdrop-blur-md">
           <Bug className="w-32 h-32 text-red-600 mx-auto mb-6 animate-shake_violent" />
           <h2 className="text-4xl font-black italic uppercase text-red-500 mb-2">LIMIT LU ABIS</h2>
-          <p className="text-white/40 text-[10px] font-bold tracking-widest mb-10">PREMIUM KE BOT LAH NGENTOD KAGA MALU PAKE AKUN FREE MULU😹</p>
+          <p className="text-white/40 text-[10px] font-bold tracking-widest mb-10 uppercase">PREMIUM KE BOT</p>
           <a href="https://t.me/lalaypo_bot" target="_blank" className="bg-white text-black py-6 px-10 rounded-3xl font-black uppercase text-xs flex items-center gap-2">
             <ExternalLink size={16} /> RESET LIMIT VIA BOT
           </a>
@@ -207,7 +206,6 @@ export default function YaeMikoDashboard() {
         </div>
       )}
 
-      {/* --- MAIN CONTENT --- */}
       {!isLoggedIn ? (
         <div className="relative z-10 flex flex-col items-center justify-center min-h-screen p-6">
           <h1 className="text-3xl font-black italic uppercase text-cyan-400 tracking-tighter mb-10">YAE MIKO <span className="text-[10px] text-white/30 block tracking-[0.5em]">VERSI 1.5</span></h1>
@@ -292,7 +290,6 @@ export default function YaeMikoDashboard() {
         </div>
       )}
 
-      {/* Global Glitch & Rumble Styles */}
       <style jsx global>{`
         @keyframes shake { 0% { transform: translate(2px, 2px); } 10% { transform: translate(-1px, -2px); } 100% { transform: translate(0); } }
         .animate-shake_violent { animation: shake 0.1s infinite; }
@@ -303,4 +300,4 @@ export default function YaeMikoDashboard() {
       `}</style>
     </div>
   )
-          }
+            }
