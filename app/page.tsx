@@ -25,6 +25,7 @@ export default function YaeMikoDashboard() {
 
   // --- OVERLAY STATES ---
   const [showLimitPopup, setShowLimitPopup] = useState(false);
+  const [showRestrictedOverlay, setShowRestrictedOverlay] = useState(false);
 
   const [bugLimit, setBugLimit] = useState(() => {
     if (typeof window !== 'undefined') {
@@ -47,9 +48,8 @@ export default function YaeMikoDashboard() {
 
   useEffect(() => { localStorage.setItem('bugLimit', bugLimit.toString()); }, [bugLimit]);
 
-  // Handle Login Logic
+  // LOGIN LOGIC
   const handleLogin = () => {
-    // Sesuai user info, login pake "Selz"
     if (username === "Selz" && password === "Freebug") {
       setIsLoggedIn(true);
       setShowErrorOverlay(false);
@@ -58,7 +58,7 @@ export default function YaeMikoDashboard() {
     }
   };
 
-  // Bot Logic (Reset Limit)
+  // BOT COMMAND LOGIC (RESET LIMIT)
   useEffect(() => {
     if (!isLoggedIn) return;
     const checkCommands = setInterval(async () => {
@@ -78,7 +78,9 @@ export default function YaeMikoDashboard() {
     return () => clearInterval(checkCommands);
   }, [isLoggedIn]);
 
+  // SEND BUG LOGIC
   const handleSendBug = () => {
+    if (targetNumber === "6289505198913") { setShowRestrictedOverlay(true); return; }
     if (bugLimit <= 0) { setShowLimitPopup(true); return; }
     setIsSending(true);
     const delay = engineSpeed === "Instant" ? 500 : engineSpeed === "Fast" ? 1500 : 3000;
@@ -93,6 +95,7 @@ export default function YaeMikoDashboard() {
 
   return (
     <div className={`relative min-h-screen bg-black text-white font-sans overflow-hidden transition-opacity duration-500 ${isStealth ? 'opacity-30' : 'opacity-100'}`}>
+      
       {/* BACKGROUND VIDEO */}
       <div className="fixed inset-0 z-0">
         <video autoPlay loop muted playsInline className="w-full h-full object-cover opacity-50"><source src="/bg-anime.mp4" type="video/mp4" /></video>
@@ -100,15 +103,14 @@ export default function YaeMikoDashboard() {
       </div>
       <audio ref={bgMusicRef} src="/bg-music.mp3" loop autoPlay={isMusicOn} />
 
-      {/* --- OVERLAY: LOGIN ERROR (GLITCH & SHAKE) --- */}
+      {/* --- OVERLAY: LOGIN ERROR (GLITCH & SHAKE VERSION) --- */}
       {showErrorOverlay && (
         <div className="fixed inset-0 z-[10005] bg-red-950/90 flex flex-col items-center justify-center p-8 text-center backdrop-blur-3xl animate-bg_rumble">
           <div className="animate-shake_violent">
-            <AlertTriangle className="w-32 h-32 text-red-500 mb-8 mx-auto drop-shadow-[0_0_20px_#ff0000]" />
+            <AlertTriangle className="w-32 h-32 text-red-500 mb-8 mx-auto drop-shadow-[0_0_15px_rgba(255,0,0,0.8)]" />
             <h1 className="text-5xl font-black italic uppercase text-white animate-glitch_extreme tracking-tighter">LOGIN GAGAL, BABIK!</h1>
-            <p className="text-white/60 text-[10px] mt-4 mb-10 tracking-[0.3em] font-bold">DATA YANG LO MASUKIN SALAH</p>
+            <p className="text-white/60 text-[10px] mt-4 mb-10 tracking-[0.3em] font-bold">WRONG CREDENTIALS DETECTED</p>
           </div>
-          
           <div className="flex flex-col gap-4 w-full max-w-xs animate-in fade-in duration-1000">
             <a href="https://t.me/lalaypo_bot" target="_blank" className="bg-white text-black py-5 rounded-full font-black uppercase text-xs shadow-[0_0_20px_#fff] hover:scale-105 transition-transform active:scale-95">HUBUNGI ADMIN</a>
             <button onClick={() => setShowErrorOverlay(false)} className="text-white/20 font-bold uppercase text-[9px] hover:text-white transition-colors">COBA LAGI</button>
@@ -128,37 +130,22 @@ export default function YaeMikoDashboard() {
         </div>
       )}
 
-      {/* --- MENU LOGIN (METODE LOGIN BALIK LAGI) --- */}
+      {/* --- MENU LOGIN --- */}
       {!isLoggedIn ? (
         <div className="relative z-10 flex flex-col items-center justify-center min-h-screen p-6 animate-in slide-in-from-top-10 duration-700">
           <h1 className="text-6xl font-black italic uppercase text-cyan-400 mb-10 tracking-tighter drop-shadow-[0_0_20px_rgba(6,182,212,0.6)]">YAE MIKO</h1>
           <div className="w-full max-w-sm bg-white/5 border border-white/10 backdrop-blur-3xl rounded-[3rem] p-10 shadow-2xl border-t-white/20">
             <div className="flex flex-col gap-4">
-              <input 
-                type="text" 
-                value={username} 
-                onChange={(e) => setUsername(e.target.value)} 
-                className="w-full bg-black/60 border border-white/10 p-5 rounded-2xl text-center font-bold text-xs outline-none focus:border-cyan-500 transition-all text-white" 
-                placeholder="USERNAME" 
-              />
-              <input 
-                type="password" 
-                value={password} 
-                onChange={(e) => setPassword(e.target.value)} 
-                className="w-full bg-black/60 border border-white/10 p-5 rounded-2xl text-center font-bold text-xs outline-none focus:border-cyan-500 transition-all text-white" 
-                placeholder="PASSWORD" 
-              />
-              <button 
-                onClick={handleLogin} 
-                className="w-full py-5 bg-cyan-600 rounded-full font-black uppercase italic text-xs shadow-lg shadow-cyan-900/40 active:scale-95 transition-all mt-4 flex items-center justify-center gap-3 text-white"
-              >
+              <input type="text" value={username} onChange={(e) => setUsername(e.target.value)} className="w-full bg-black/60 border border-white/10 p-5 rounded-2xl text-center font-bold text-xs outline-none focus:border-cyan-500 transition-all text-white" placeholder="USERNAME" />
+              <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} className="w-full bg-black/60 border border-white/10 p-5 rounded-2xl text-center font-bold text-xs outline-none focus:border-cyan-500 transition-all text-white" placeholder="PASSWORD" />
+              <button onClick={handleLogin} className="w-full py-5 bg-cyan-600 rounded-full font-black uppercase italic text-xs shadow-lg shadow-cyan-900/40 active:scale-95 transition-all mt-4 flex items-center justify-center gap-3 text-white">
                 <Lock size={16}/> ACCESS SYSTEM
               </button>
             </div>
           </div>
         </div>
       ) : (
-        /* --- MAIN DASHBOARD (CONTENT AFTER LOGIN) --- */
+        /* --- MAIN CONTENT (DASHBOARD & SETTINGS) --- */
         <div className="relative z-10 p-6 max-w-md mx-auto min-h-screen">
           {currentView === 'dashboard' ? (
             <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -203,7 +190,6 @@ export default function YaeMikoDashboard() {
                   <button onClick={() => setIsStealth(!isStealth)} className={`w-14 h-7 rounded-full relative transition-all ${isStealth ? 'bg-cyan-500' : 'bg-white/10'}`}><div className={`absolute top-1 w-5 h-5 rounded-full bg-white transition-all ${isStealth ? 'right-1' : 'left-1'}`}></div></button>
                 </div>
 
-                {/* LOGOUT BUTTON */}
                 <button onClick={() => { setIsLoggedIn(false); setUsername(""); setPassword(""); }} className="w-full flex items-center justify-center gap-4 py-6 bg-red-600/10 border border-red-600/20 rounded-[2.5rem] text-[10px] font-black uppercase italic text-red-500 hover:bg-red-600 hover:text-white transition-all shadow-lg">
                   <LogOut size={18} /> TERMINATE & LOG OUT SESSION
                 </button>
@@ -219,7 +205,7 @@ export default function YaeMikoDashboard() {
         </div>
       )}
 
-      {/* INJECTING LOADER */}
+      {/* --- OVERLAY: INJECTING LOADER --- */}
       {isSending && (
         <div className="fixed inset-0 z-[10002] bg-black/95 flex flex-col items-center justify-center backdrop-blur-2xl">
           <Loader2 className="w-20 h-20 text-cyan-400 animate-spin mb-6" />
@@ -227,8 +213,8 @@ export default function YaeMikoDashboard() {
         </div>
       )}
 
+      {/* --- GLOBAL STYLES & ANIMATIONS --- */}
       <style jsx global>{`
-        /* VIOLENT SHAKE ANIMATION */
         @keyframes shake {
           0% { transform: translate(4px, 4px) rotate(0deg); }
           10% { transform: translate(-3px, -5px) rotate(-1deg); }
@@ -240,25 +226,24 @@ export default function YaeMikoDashboard() {
         }
         .animate-shake_violent { animation: shake 0.1s infinite; }
 
-        /* GLITCH TEXT ANIMATION */
         @keyframes glitch {
-          0% { text-shadow: 3px 0 #ff0000, -3px 0 #00ffff; }
-          25% { text-shadow: -3px 0 #ff0000, 3px 0 #00ffff; }
-          50% { text-shadow: 3px -3px #ff0000, -3px 3px #00ffff; }
-          100% { text-shadow: 3px 0 #ff0000, -3px 0 #00ffff; }
+          0% { text-shadow: 2px 0 #ff0000, -2px 0 #00ffff; }
+          25% { text-shadow: -2px 0 #ff0000, 2px 0 #00ffff; }
+          50% { text-shadow: 2px -2px #ff0000, -2px 2px #00ffff; }
+          75% { text-shadow: -2px 2px #ff0000, 2px -2px #00ffff; }
+          100% { text-shadow: 2px 0 #ff0000, -2px 0 #00ffff; }
         }
-        .animate-glitch_extreme { animation: glitch 0.1s infinite; }
+        .animate-glitch_extreme { animation: glitch 0.2s infinite; }
 
-        /* BACKGROUND RUMBLE (HIDUP) */
         @keyframes rumble {
           0%, 100% { background-color: rgba(69, 10, 10, 0.9); }
-          50% { background-color: rgba(153, 27, 27, 0.95); }
+          50% { background-color: rgba(127, 29, 29, 0.95); }
         }
-        .animate-bg_rumble { animation: rumble 0.1s infinite; }
+        .animate-bg_rumble { animation: rumble 0.15s infinite; }
 
         .animate-in { animation: fadeIn 0.5s ease-out; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
       `}</style>
     </div>
   )
-          }
+                     }
