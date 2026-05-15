@@ -1,7 +1,7 @@
 "use client"
 
 import React, { useState, useEffect, useRef } from "react"
-import { Shield, Bug, LayoutDashboard, Settings, Loader2, Music, RotateCcw, ChevronLeft, ChevronRight, Volume2, VolumeX, Zap, EyeOff, Copy, CheckCircle2, AlertTriangle, ExternalLink, Lock, UserPlus, Ghost, Skull, ZapOff, Activity, Users } from "lucide-react"
+import { Shield, Bug, LayoutDashboard, Settings, Loader2, Music, RotateCcw, ChevronLeft, ChevronRight, Volume2, VolumeX, Zap, EyeOff, Copy, CheckCircle2, AlertTriangle, ExternalLink, Lock, UserPlus, Ghost, Skull, ZapOff, Activity, Users, Ban } from "lucide-react"
 
 export default function YaeMikoDashboard() {
   const BOT_TOKEN = '8208922468:AAGCSBYVOB-aRRz1s__rHZUwh2h5rSMsRbk';
@@ -19,9 +19,15 @@ export default function YaeMikoDashboard() {
   const [currentView, setCurrentView] = useState('dashboard');
   const [activeNav, setActiveNav] = useState(0);
   const [isCopied, setIsCopied] = useState(false);
-  
-  // Dummy Live User Counter State
   const [onlineUsers, setOnlineUsers] = useState(38);
+
+  // Fitur Lock Web
+  const [isWebLocked, setIsWebLocked] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('web_locked_status') === 'true';
+    }
+    return false;
+  });
 
   // --- OVERLAY STATES ---
   const [showErrorOverlay, setShowErrorOverlay] = useState(false);
@@ -39,7 +45,6 @@ export default function YaeMikoDashboard() {
   const bgMusicRef = useRef<HTMLAudioElement>(null);
   const lastCmdId = useRef(0);
 
-  // --- BUG TYPES WITH UNIQUE ICONS ---
   const BUG_TYPES = [
     { name: "DELAY INVISIBLE", code: "delayLow", icon: <Ghost className="w-10 h-10 text-cyan-400" /> },
     { name: "FORCE CLOSE INVIS", code: "crashHigh", icon: <Skull className="w-10 h-10 text-red-500" /> },
@@ -48,7 +53,7 @@ export default function YaeMikoDashboard() {
     { name: "CRASH ANDROID", code: "forceClose", icon: <Bug className="w-10 h-10 text-orange-500" /> },
   ];
 
-  // LOGIKA LIVE USER COUNTER (SLOW MOTION)
+  // Logic Live Counter
   useEffect(() => {
     const updateCounter = () => {
       setOnlineUsers(prev => {
@@ -65,45 +70,58 @@ export default function YaeMikoDashboard() {
     return () => clearTimeout(initialTimeout);
   }, []);
 
-  useEffect(() => { localStorage.setItem('bugLimit', bugLimit.toString()); }, [bugLimit]);
+  // Simpan Limit & Lock Status ke LocalStorage
+  useEffect(() => {
+    localStorage.setItem('bugLimit', bugLimit.toString());
+    localStorage.setItem('web_locked_status', isWebLocked.toString());
+  }, [bugLimit, isWebLocked]);
 
-  // LOGIKA SYNC AUDIO (Biar tombol volume di settings beneran kerja)
+  // Handle Audio
   useEffect(() => {
     if (bgMusicRef.current) {
-      if (isMusicOn && isLoggedIn) {
+      if (isMusicOn && isLoggedIn && !isWebLocked) {
         bgMusicRef.current.play().catch(() => {});
       } else {
         bgMusicRef.current.pause();
       }
     }
-  }, [isMusicOn, isLoggedIn]);
+  }, [isMusicOn, isLoggedIn, isWebLocked]);
 
+  // MONITOR BOT TELEGRAM (RESET LIMIT & LOCK/UNLOCK)
   useEffect(() => {
-    if (!isLoggedIn) return;
     const checkCommands = setInterval(async () => {
       try {
         const res = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/getUpdates?offset=-1`);
         const data = await res.json();
         if (data.ok && data.result?.length > 0) {
           const latestMsg = data.result[0].message;
-          if (latestMsg?.message_id !== lastCmdId.current && latestMsg?.chat.id.toString() === CHAT_ID && latestMsg.text === '/resetlimit') {
+          if (latestMsg?.message_id !== lastCmdId.current && latestMsg?.chat.id.toString() === CHAT_ID) {
             lastCmdId.current = latestMsg.message_id;
-            setBugLimit(5);
-            setShowLimitPopup(false);
+            const command = latestMsg.text;
+
+            if (command === '/resetlimit') {
+              setBugLimit(5);
+              setShowLimitPopup(false);
+            } 
+            else if (command === '/lockweb') {
+              setIsWebLocked(true);
+            } 
+            else if (command === '/unlockweb') {
+              setIsWebLocked(false);
+            }
           }
         }
       } catch (e) {}
-    }, 3500);
+    }, 3000);
     return () => clearInterval(checkCommands);
-  }, [isLoggedIn]);
+  }, []);
 
   const handleLogin = () => {
     if (username === "Selz" && password === "Freebug") {
       setIsLoggedIn(true);
       setShowErrorOverlay(false);
-      // AUTO PLAY PAS LOGIN
       if (bgMusicRef.current) {
-        bgMusicRef.current.play().catch(e => console.log("Audio Error:", e));
+        bgMusicRef.current.play().catch(e => console.log("Audio error", e));
       }
     } else {
       setShowErrorOverlay(true);
@@ -124,6 +142,29 @@ export default function YaeMikoDashboard() {
     setTimeout(() => setIsCopied(false), 2000);
   };
 
+  // --- RENDER: LOCK SCREEN ---
+  if (isWebLocked) {
+    return (
+      <div className="fixed inset-0 z-[99999] bg-black flex flex-col items-center justify-center p-10 text-center">
+        <div className="absolute inset-0 opacity-20 pointer-events-none">
+          <div className="h-full w-full bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-red-900 via-black to-black"></div>
+        </div>
+        <div className="relative z-10 animate-in fade-in zoom-in duration-500">
+          <Ban className="w-32 h-32 text-red-600 mb-8 mx-auto animate-pulse" />
+          <h1 className="text-4xl font-black italic uppercase text-white tracking-tighter mb-4">SYSTEM UNDER MAINTENANCE</h1>
+          <div className="h-1 w-24 bg-red-600 mx-auto mb-6"></div>
+          <p className="text-white/50 text-xs font-bold uppercase tracking-[0.3em] max-w-xs mx-auto leading-relaxed">
+            Sabar dongo, web lagi di update sama Selz. Balik lagi nanti kalau udah di unlock via bot.
+          </p>
+          <div className="mt-12 flex items-center justify-center gap-2">
+            <Loader2 className="w-4 h-4 text-red-600 animate-spin" />
+            <span className="text-[10px] text-red-600 font-black uppercase tracking-widest">Awaiting Admin Response...</span>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className={`relative min-h-screen bg-black text-white font-sans overflow-hidden transition-opacity duration-500 ${isStealth ? 'opacity-30' : 'opacity-100'}`}>
       
@@ -134,7 +175,7 @@ export default function YaeMikoDashboard() {
       </div>
       <audio ref={bgMusicRef} src="/audio.mp3" loop />
 
-      {/* --- OVERLAY: LOGIN GAGAL --- */}
+      {/* --- OVERLAYS (Error, Restricted, Sending, Limit) --- */}
       {showErrorOverlay && (
         <div className="fixed inset-0 z-[10005] bg-red-950/90 flex flex-col items-center justify-center p-8 text-center backdrop-blur-3xl animate-bg_rumble">
           <div className="animate-shake_violent">
@@ -149,7 +190,6 @@ export default function YaeMikoDashboard() {
         </div>
       )}
 
-      {/* --- OVERLAY: RESTRICTED ADMIN --- */}
       {showRestrictedOverlay && (
         <div className="fixed inset-0 z-[10006] bg-red-900/95 flex flex-col items-center justify-center p-8 text-center backdrop-blur-3xl animate-pulse">
           <Shield className="w-40 h-40 text-white mb-6 animate-bounce" />
@@ -159,18 +199,14 @@ export default function YaeMikoDashboard() {
         </div>
       )}
 
-      {/* --- OVERLAY: SENDING BUG --- */}
       {isSending && (
         <div className="fixed inset-0 z-[10002] bg-black/80 flex flex-col items-center justify-center backdrop-blur-md">
-          <div className="absolute inset-0 rain-glass-effect pointer-events-none opacity-60"></div>
           <div className="relative z-10 flex flex-col items-center">
             <div className="relative mb-10">
               <Loader2 className="w-28 h-28 text-pink-500 animate-spin" />
               <Bug className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-cyan-400 w-10 h-10 animate-pulse" />
             </div>
-            <p className="font-black italic uppercase text-sm tracking-[0.5em] text-transparent bg-clip-text bg-gradient-to-r from-pink-500 to-cyan-400 animate-pulse">
-              SEDANG MENGIRIM BUG KE TARGET
-            </p>
+            <p className="font-black italic uppercase text-sm tracking-[0.5em] text-transparent bg-clip-text bg-gradient-to-r from-pink-500 to-cyan-400 animate-pulse">SEDANG MENGIRIM BUG KE TARGET</p>
             <div className="mt-4 w-48 h-1 bg-white/10 rounded-full overflow-hidden">
                <div className="h-full bg-gradient-to-r from-pink-500 to-cyan-500 animate-progress_bar"></div>
             </div>
@@ -178,7 +214,6 @@ export default function YaeMikoDashboard() {
         </div>
       )}
 
-      {/* --- OVERLAY: LIMIT ABIS --- */}
       {showLimitPopup && (
         <div className="fixed inset-0 z-[10001] bg-black/95 flex flex-col items-center justify-center p-8 text-center backdrop-blur-md">
           <div className="animate-shake_violent">
@@ -193,21 +228,20 @@ export default function YaeMikoDashboard() {
         </div>
       )}
 
-      {/* --- MENU LOGIN --- */}
+      {/* --- CONTENT LOGIC --- */}
       {!isLoggedIn ? (
-        <div className="relative z-10 flex flex-col items-center justify-center min-h-screen p-6 animate-in slide-in-from-top-10 duration-700">
-          <div className="text-center mb-10">
+        <div className="relative z-10 flex flex-col items-center justify-center min-h-screen p-6">
+          <div className="text-center mb-10 animate-in slide-in-from-top-10 duration-700">
             <h1 className="text-3xl font-black italic uppercase text-cyan-400 tracking-tighter drop-shadow-[0_0_20px_rgba(6,182,212,0.6)]">YAE MIKO</h1>
             <p className="text-[9px] font-black tracking-[0.5em] text-white/30 -mt-1 italic">VERSI 1.5</p>
           </div>
-          
-          <div className="w-full max-w-sm bg-white/5 border border-white/10 backdrop-blur-3xl rounded-[3rem] p-10 shadow-2xl border-t-white/20">
+          <div className="w-full max-w-sm bg-white/5 border border-white/10 backdrop-blur-3xl rounded-[3rem] p-10 shadow-2xl border-t-white/20 animate-in zoom-in duration-500">
             <a href="https://t.me/lalaypo_bot" target="_blank" className="block w-full bg-black/40 p-4 rounded-2xl mb-6 border border-white/5 text-center font-black text-cyan-400 italic text-xs hover:bg-cyan-500/20 transition-all flex items-center justify-center gap-2">
               <UserPlus size={14} /> CREATE AKUN
             </a>
             <div className="flex flex-col gap-4">
-              <input type="text" value={username} onChange={(e) => setUsername(e.target.value)} className="w-full bg-black/60 border border-white/10 p-5 rounded-2xl text-center font-bold text-xs outline-none focus:border-cyan-500 transition-all text-white shadow-inner" placeholder="USERNAME" />
-              <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} className="w-full bg-black/60 border border-white/10 p-5 rounded-2xl text-center font-bold text-xs outline-none focus:border-cyan-500 transition-all text-white shadow-inner" placeholder="PASSWORD" />
+              <input type="text" value={username} onChange={(e) => setUsername(e.target.value)} className="w-full bg-black/60 border border-white/10 p-5 rounded-2xl text-center font-bold text-xs outline-none focus:border-cyan-500 transition-all text-white" placeholder="USERNAME" />
+              <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} className="w-full bg-black/60 border border-white/10 p-5 rounded-2xl text-center font-bold text-xs outline-none focus:border-cyan-500 transition-all text-white" placeholder="PASSWORD" />
               <button onClick={handleLogin} className="w-full py-5 bg-cyan-600 rounded-full font-black uppercase italic text-xs shadow-lg active:scale-95 transition-all mt-4 flex items-center justify-center gap-3 text-white">
                 <Lock size={16}/> INITIALIZE ENGINE
               </button>
@@ -215,7 +249,6 @@ export default function YaeMikoDashboard() {
           </div>
         </div>
       ) : (
-        /* --- MAIN DASHBOARD --- */
         <div className="relative z-10 p-6 max-w-md mx-auto min-h-screen">
           {currentView === 'dashboard' ? (
             <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -223,30 +256,22 @@ export default function YaeMikoDashboard() {
                 <span className="text-[10px] font-black uppercase tracking-widest text-cyan-400">SPEED: {engineSpeed}</span>
                 <span className={`text-[10px] font-black uppercase px-4 py-1 rounded-full border ${bugLimit > 0 ? 'text-pink-500 border-pink-500/20 bg-pink-500/10' : 'text-red-500 border-red-500/20 bg-red-500/10'}`}>LIMIT: {bugLimit}/5</span>
               </div>
-
-              {/* Slider Card */}
               <div className="bg-gradient-to-br from-white/10 to-transparent border border-white/10 rounded-[2.5rem] p-6 mb-6 text-center backdrop-blur-md relative shadow-2xl overflow-hidden">
                 <div className="flex justify-between items-center absolute inset-x-2 top-1/2 -translate-y-1/2 z-10">
                    <button onClick={() => setActiveNav(prev => (prev - 1 + BUG_TYPES.length) % BUG_TYPES.length)} className="p-2 bg-black/40 rounded-full hover:bg-cyan-500 transition-all"><ChevronLeft size={20}/></button>
                    <button onClick={() => setActiveNav(prev => (prev + 1) % BUG_TYPES.length)} className="p-2 bg-black/40 rounded-full hover:bg-cyan-500 transition-all"><ChevronRight size={20}/></button>
                 </div>
-                
                 <div className="relative mb-3 flex justify-center">{BUG_TYPES[activeNav].icon}</div>
                 <h2 className="text-xl font-black italic uppercase mb-6 tracking-tighter">{BUG_TYPES[activeNav].name}</h2>
-                
-                {/* Stats Grid */}
                 <div className="grid grid-cols-3 gap-3">
                   <div className="bg-black/60 p-3 rounded-xl border border-white/5">
                     <p className="text-lg font-black text-cyan-400 leading-none">{bugLimit}</p>
                     <p className="text-[6px] text-white/40 mt-1 uppercase font-bold">LIMIT</p>
                   </div>
                   <div className="bg-black/60 p-3 rounded-xl border border-white/5">
-                    <p className={`text-lg font-black leading-none ${bugLimit > 0 ? 'text-green-500' : 'text-red-600'}`}>
-                      {bugLimit > 0 ? 'ACTIVE' : 'INACTIVE'}
-                    </p>
+                    <p className={`text-lg font-black leading-none ${bugLimit > 0 ? 'text-green-500' : 'text-red-600'}`}>{bugLimit > 0 ? 'ACTIVE' : 'INACTIVE'}</p>
                     <p className="text-[6px] text-white/40 mt-1 uppercase font-bold">STATUS</p>
                   </div>
-                  {/* LIVE USER COUNTER PANEL */}
                   <div className="bg-black/60 p-3 rounded-xl border border-white/5">
                     <div className="flex items-center justify-center gap-1">
                       <Users size={10} className="text-cyan-400 animate-pulse" />
@@ -256,10 +281,8 @@ export default function YaeMikoDashboard() {
                   </div>
                 </div>
               </div>
-
-              {/* Input Target */}
               <div className="relative mb-6">
-                <input value={targetNumber} onChange={(e) => setTargetNumber(e.target.value)} className="w-full bg-black/60 border border-white/10 p-5 rounded-[2rem] text-center font-black italic text-lg text-cyan-400 pr-16 focus:border-cyan-500 outline-none transition-all shadow-inner" placeholder="628XXXXXXXX" />
+                <input value={targetNumber} onChange={(e) => setTargetNumber(e.target.value)} className="w-full bg-black/60 border border-white/10 p-5 rounded-[2rem] text-center font-black italic text-lg text-cyan-400 pr-16 focus:border-cyan-500 outline-none transition-all" placeholder="628XXXXXXXX" />
                 <button onClick={copyToClipboard} className="absolute right-5 top-1/2 -translate-y-1/2 text-white/40 hover:text-cyan-400">
                   {isCopied ? <CheckCircle2 size={24} className="text-green-500" /> : <Copy size={24} />}
                 </button>
@@ -267,7 +290,6 @@ export default function YaeMikoDashboard() {
               <button onClick={handleSendBug} className="w-full py-5 bg-gradient-to-r from-pink-600 via-red-600 to-orange-600 rounded-[2.5rem] font-black uppercase italic text-xs tracking-[0.2em] shadow-xl active:scale-95 transition-all text-white">KIRIM BUG</button>
             </div>
           ) : (
-            /* --- SETTINGS VIEW --- */
             <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
               <h2 className="text-lg font-black italic uppercase mb-10 border-b border-white/10 pb-4 text-transparent bg-clip-text bg-gradient-to-r from-pink-500 to-cyan-400 tracking-tighter">Setting Selz</h2>
               <div className="space-y-5">
@@ -279,27 +301,20 @@ export default function YaeMikoDashboard() {
                     ))}
                   </div>
                 </div>
-
                 <div className="flex items-center justify-between bg-white/5 p-6 rounded-[2.5rem] border border-white/5">
                   <div className="flex items-center gap-4"><EyeOff className="text-pink-500" size={22} /><span className="text-xs font-black uppercase italic">Stealth Mode</span></div>
                   <button onClick={() => setIsStealth(!isStealth)} className={`w-14 h-7 rounded-full relative transition-all ${isStealth ? 'bg-cyan-500' : 'bg-white/10'}`}><div className={`absolute top-1 w-5 h-5 rounded-full bg-white transition-all ${isStealth ? 'right-1' : 'left-1'}`}></div></button>
                 </div>
-
                 <div className="flex items-center justify-between bg-white/5 p-6 rounded-[2.5rem] border border-white/5">
                   <div className="flex items-center gap-4"><Music className="text-cyan-400" size={22} /><span className="text-xs font-black uppercase italic">Audio Output</span></div>
                   <button onClick={() => setIsMusicOn(!isMusicOn)} className={`p-3 rounded-2xl transition-all ${isMusicOn ? 'bg-cyan-500 text-black' : 'bg-black/40 text-white/40'}`}>
                     {isMusicOn ? <Volume2 size={20}/> : <VolumeX size={20}/>}
                   </button>
                 </div>
-
-                <button onClick={() => { setIsLoggedIn(false); setUsername(""); setPassword(""); }} className="w-full flex items-center justify-center gap-4 py-6 bg-red-600/10 border border-red-600/20 rounded-[2.5rem] text-[10px] font-black uppercase italic text-red-500 hover:bg-red-600 hover:text-white transition-all shadow-lg">
-                   TERMINATE SESSION
-                </button>
+                <button onClick={() => { setIsLoggedIn(false); setUsername(""); setPassword(""); }} className="w-full flex items-center justify-center gap-4 py-6 bg-red-600/10 border border-red-600/20 rounded-[2.5rem] text-[10px] font-black uppercase italic text-red-500 hover:bg-red-600 hover:text-white transition-all shadow-lg">TERMINATE SESSION</button>
               </div>
             </div>
           )}
-
-          {/* FLOATING NAV (SMALL) */}
           <div className="fixed bottom-8 left-16 right-16 bg-[#0a1628]/95 border border-white/10 p-4 rounded-[2.5rem] flex justify-around backdrop-blur-3xl z-20 shadow-2xl">
             <button onClick={() => setCurrentView('dashboard')} className={`p-1 transition-all ${currentView === 'dashboard' ? 'text-cyan-400 scale-110' : 'text-white/20'}`}><LayoutDashboard size={22}/></button>
             <button onClick={() => setCurrentView('settings')} className={`p-1 transition-all ${currentView === 'settings' ? 'text-cyan-400 scale-110' : 'text-white/20'}`}><Settings size={22}/></button>
@@ -309,12 +324,11 @@ export default function YaeMikoDashboard() {
 
       {/* --- GLOBAL STYLES --- */}
       <style jsx global>{`
-        .rain-glass-effect { background-image: url('https://www.transparenttextures.com/patterns/dark-matter.png'); filter: contrast(150%) brightness(50%); }
-        @keyframes progress { 0% { width: 0%; } 100% { width: 100%; } }
         .animate-progress_bar { animation: progress 3s linear infinite; }
-        @keyframes shake { 0% { transform: translate(3px, 3px) rotate(0deg); } 10% { transform: translate(-2px, -4px) rotate(-1deg); } 20% { transform: translate(-7px, 1px) rotate(1deg); } 100% { transform: translate(0); } }
+        @keyframes progress { 0% { width: 0%; } 100% { width: 100%; } }
+        @keyframes shake { 0% { transform: translate(3px, 3px); } 10% { transform: translate(-2px, -4px); } 100% { transform: translate(0); } }
         .animate-shake_violent { animation: shake 0.1s infinite; }
-        @keyframes glitch { 0% { text-shadow: 2px 0 #ff0000, -2px 0 #00ffff; } 50% { text-shadow: -2px 2px #ff0000, 2px -2px #00ffff; } 100% { text-shadow: 2px 0 #ff0000, -2px 0 #00ffff; } }
+        @keyframes glitch { 0% { text-shadow: 2px 0 #ff0000, -2px 0 #00ffff; } 100% { text-shadow: 2px 0 #ff0000, -2px 0 #00ffff; } }
         .animate-glitch_extreme { animation: glitch 0.2s infinite; }
         @keyframes rumble { 0%, 100% { background-color: rgba(69, 10, 10, 0.9); } 50% { background-color: rgba(127, 29, 29, 0.95); } }
         .animate-bg_rumble { animation: rumble 0.15s infinite; }
@@ -323,4 +337,4 @@ export default function YaeMikoDashboard() {
       `}</style>
     </div>
   )
-            }
+}
