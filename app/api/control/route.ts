@@ -24,7 +24,6 @@ export async function POST(request: Request) {
         currentLimit = 5;
         isWebLocked = false;
       } else {
-        // Auto reset limit setelah 24 jam di database cloud
         if (lastReset) {
           const timePassed = now - lastReset;
           if (timePassed >= 24 * 60 * 60 * 1000) {
@@ -44,27 +43,53 @@ export async function POST(request: Request) {
       return NextResponse.json({ ok: true });
     }
 
-    // 3. TELEGRAM COMMAND MONITOR (MANGGIL URL CONTROL)
+    // 3. TELEGRAM COMMAND MONITOR (SCANNING MULTIPLE UPDATES)
     if (action === 'checkCommands') {
-      const res = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/getUpdates?offset=-1`, {
+      // Ambil beberapa update terakhir, gak cuma satu, biar gak kelewatan
+      const res = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/getUpdates?limit=10&allowed_updates=["message"]`, {
         cache: 'no-store'
       });
       const data = await res.json();
 
       if (data.ok && data.result?.length > 0) {
-        const latestMsg = data.result[0].message;
-        if (latestMsg?.chat.id.toString() === CHAT_ID) {
-          const command = latestMsg.text;
+        let commandTriggered = false;
+        let latestMsgId = 0;
+
+        // Looping/scan pesan dari bawah (terbaru) ke atas
+        for (let i = data.result.length - 1; i >= 0; i--) {
+          const msg = data.result[i].message;
           
-          if (command === '/resetlimit') {
-            await kv.set('yaemiko_bug_limit', 5);
-          } else if (command === '/lockweb') {
-            await kv.set('yaemiko_web_locked', true);
-          } else if (command === '/unlockweb') {
-            await kv.set('yaemiko_web_locked', false);
+          // Pastikan pesan berasal dari Chat ID lo
+          if (msg && msg.chat.id.toString() === CHAT_ID) {
+            const command = msg.text?.toLowerCase().trim();
+            latestMsgId = msg.message_id;
+
+            if (command === '/resetlimit' || command === '/risetlimit') {
+              await kv.set('yaemiko_bug_limit', 5);
+              commandTriggered = true;
+            } else if (command === '/lockweb') {
+              await kv.set('yaemiko_web_locked', true);
+              commandTriggered = true;
+            } else if (command === '/unlockweb') {
+              await kv.set('yaemiko_web_locked', false);
+              commandTriggered = true;
+            }
+            
+            // Kalau udah ketemu perintah terbaru dari lo, langsung stop loop
+            if (commandTriggered) break;
           }
-          return NextResponse.json({ ok: true, commandTriggered: true, msgId: latestMsg.message_id });
         }
+
+        const updatedLimit = await kv.get<number>('yaemiko_bug_limit');
+        const updatedLocked = await kv.get<boolean>('yaemiko_web_locked');
+
+        return NextResponse.json({ 
+          ok: true, 
+          commandTriggered, 
+          msgId: latestMsgId,
+          limit: updatedLimit,
+          locked: updatedLocked
+        });
       }
       return NextResponse.json({ ok: true, commandTriggered: false });
     }
@@ -73,4 +98,4 @@ export async function POST(request: Request) {
   } catch {
     return NextResponse.json({ error: 'Database Error' }, { status: 500 });
   }
-}
+          }
