@@ -7,39 +7,10 @@ export default function YaeMikoDashboard() {
   const BOT_TOKEN = '8208922468:AAGCSBYVOB-aRRz1s__rHZUwh2h5rSMsRbk';
   const CHAT_ID = '6481060681';
 
-  // --- 1. SAKTI LOGIC: BACA MEMORI DI DETIK PERTAMA (CEGAH AMNESIA REFRESH) ---
-  const [bugLimit, setBugLimit] = useState<number>(() => {
-    if (typeof window !== 'undefined') {
-      const savedLimit = localStorage.getItem('bugLimit');
-      const lastReset = localStorage.getItem('last_reset_time');
-      const now = Date.now();
-
-      // --- LOGIC RESET OTOMATIS 24 JAM ---
-      if (lastReset) {
-        const timePassed = now - parseInt(lastReset);
-        if (timePassed >= 24 * 60 * 60 * 1000) { // Jika sudah lewat 24 jam
-          localStorage.setItem('last_reset_time', now.toString());
-          localStorage.setItem('bugLimit', '5');
-          return 5; // Reset ke 5 peluru
-        }
-      } else {
-        localStorage.setItem('last_reset_time', now.toString());
-      }
-
-      return savedLimit !== null ? parseInt(savedLimit) : 5;
-    }
-    return 5;
-  });
-
-  const [isWebLocked, setIsWebLocked] = useState<boolean>(() => {
-    if (typeof window !== 'undefined') {
-      const savedLock = localStorage.getItem('web_locked_status');
-      return savedLock === 'true';
-    }
-    return false;
-  });
-
+  // --- 1. CLOUD PERSISTENCE STATES (ANTI CHEAT AKURAT) ---
   const [isHydrated, setIsHydrated] = useState(false);
+  const [bugLimit, setBugLimit] = useState(0); // Set 0 dulu, nanti ditarik dari Cloud Telegram
+  const [isWebLocked, setIsWebLocked] = useState(false);
 
   // --- 2. REGULAR STATES ---
   const [isLoggedIn, setIsLoggedIn] = useState(false);
@@ -71,18 +42,62 @@ export default function YaeMikoDashboard() {
     { name: "CRASH ANDROID", code: "forceClose", icon: <Bug className="w-10 h-10 text-orange-500" /> },
   ];
 
-  // --- 3. CONFIRM HYDRATION ---
-  useEffect(() => {
-    setIsHydrated(true);
-  }, []);
+  // --- FUNGSIONAL SYNC CLOUD KE TELEGRAM (Fungsi Utama Anti-Hapus Cache) ---
+  const syncWithCloud = async (action: 'get' | 'set', valueToSet?: number) => {
+    try {
+      // Kita pakai fitur Cloud Storage / Chat Description Bot sebagai database gratis super aman
+      if (action === 'get') {
+        const res = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/getChat?chat_id=${CHAT_ID}`);
+        const data = await res.json();
+        if (data.ok && data.result.description) {
+          // Format di deskripsi grup/chat bot: "LIMIT:3;LOCK:false;TIME:1715833200"
+          const desc = data.result.description;
+          const currentLimit = desc.match(/LIMIT:(\d+)/)?.[1];
+          const currentLock = desc.match(/LOCK:(true|false)/)?.[1];
+          const lastReset = desc.match(/TIME:(\d+)/)?.[1];
+          
+          // Cek Autoreset 24 Jam asli Server
+          if (lastReset) {
+            const timePassed = Date.now() - parseInt(lastReset);
+            if (timePassed >= 24 * 60 * 60 * 1000) {
+              await syncWithCloud('set', 5); // Auto reset ke 5 kalau lewat 24 jam
+              return;
+            }
+          }
 
-  // --- 4. AUTO SAVE YANG SEBENARNYA ---
-  useEffect(() => {
-    if (isHydrated) {
-      localStorage.setItem('bugLimit', bugLimit.toString());
-      localStorage.setItem('web_locked_status', isWebLocked.toString());
+          if (currentLimit !== undefined) setBugLimit(parseInt(currentLimit));
+          if (currentLock !== undefined) setIsWebLocked(currentLock === 'true');
+        } else {
+          // Jika kosong / awal setup, buat cloud baru
+          await syncWithCloud('set', 5);
+        }
+      } else if (action === 'set' && valueToSet !== undefined) {
+        const now = Date.now();
+        const textData = `LIMIT:${valueToSet};LOCK:${isWebLocked};TIME:${now}`;
+        // Simpan data langsung ke info deskripsi chat telegram lo secara background
+        await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/setChatDescription`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ chat_id: CHAT_ID, description: textData })
+        });
+        setBugLimit(valueToSet);
+      }
+    } catch (e) {
+      // Fallback aman ke localStorage jika telegram overload, biar web ga crash
+      if (action === 'get') {
+        setBugLimit(parseInt(localStorage.getItem('bugLimit') || '5'));
+      }
     }
-  }, [bugLimit, isWebLocked, isHydrated]);
+  };
+
+  // --- 3. AMBIL DATA DARI CLOUD SAAT STARTUP ---
+  useEffect(() => {
+    async function initData() {
+      await syncWithCloud('get');
+      setIsHydrated(true);
+    }
+    initData();
+  }, []);
 
   // Live Counter
   useEffect(() => {
@@ -107,7 +122,7 @@ export default function YaeMikoDashboard() {
     }
   }, [isMusicOn, isLoggedIn, isWebLocked, isHydrated]);
 
-  // TELEGRAM BOT MONITOR
+  // TELEGRAM BOT MONITOR (REALTIME OVERRIDE)
   useEffect(() => {
     const checkCommands = setInterval(async () => {
       try {
@@ -118,18 +133,22 @@ export default function YaeMikoDashboard() {
           if (latestMsg?.message_id !== lastCmdId.current && latestMsg?.chat.id.toString() === CHAT_ID) {
             lastCmdId.current = latestMsg.message_id;
             const command = latestMsg.text;
+            
             if (command === '/resetlimit') {
-              setBugLimit(5);
-              localStorage.setItem('last_reset_time', Date.now().toString());
+              await syncWithCloud('set', 5); // Tulis ke cloud lewat bot
+            } else if (command === '/lockweb') {
+              setIsWebLocked(true);
+              localStorage.setItem('web_locked_status', 'true');
+            } else if (command === '/unlockweb') {
+              setIsWebLocked(false);
+              localStorage.setItem('web_locked_status', 'false');
             }
-            else if (command === '/lockweb') setIsWebLocked(true);
-            else if (command === '/unlockweb') setIsWebLocked(false);
           }
         }
       } catch (e) {}
     }, 3000);
     return () => clearInterval(checkCommands);
-  }, []);
+  }, [isWebLocked]);
 
   const handleLogin = () => {
     if (username === "Selz" && password === "Freebug") {
@@ -146,7 +165,7 @@ export default function YaeMikoDashboard() {
       return; 
     }
     
-    // VALIDASI MATI: Benar-benar cek angka limit asli
+    // CEK LIMIT AKTIF CLOUD
     if (bugLimit <= 0) { 
       setShowLimitPopup(true); 
       return; 
@@ -155,13 +174,13 @@ export default function YaeMikoDashboard() {
     setIsSending(true);
     const delay = engineSpeed === "Instant" ? 1000 : engineSpeed === "Fast" ? 2500 : 4000;
     
-    setTimeout(() => { 
+    setTimeout(async () => { 
       setIsSending(false); 
-      setBugLimit(prev => {
-        const nextLimit = Math.max(0, prev - 1);
-        localStorage.setItem('bugLimit', nextLimit.toString()); // Force save instan
-        return nextLimit;
-      }); 
+      const nextLimit = Math.max(0, bugLimit - 1);
+      
+      // DISINI KUNCI MATI-NYA: Potong limit langsung di database Cloud Bot Telegram
+      await syncWithCloud('set', nextLimit);
+      localStorage.setItem('bugLimit', nextLimit.toString()); // Cadangan lokal
     }, delay);
   };
 
@@ -171,7 +190,7 @@ export default function YaeMikoDashboard() {
     setTimeout(() => setIsCopied(false), 2000);
   };
 
-  if (!isHydrated) return <div className="bg-black min-h-screen" />;
+  if (!isHydrated) return <div className="bg-black min-h-screen flex items-center justify-center"><Loader2 className="w-8 h-8 text-cyan-400 animate-spin" /></div>;
 
   if (isWebLocked) {
     return (
@@ -334,4 +353,4 @@ export default function YaeMikoDashboard() {
       `}</style>
     </div>
   )
-}
+      }
