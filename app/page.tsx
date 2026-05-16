@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef } from "react"
 import { Shield, Bug, LayoutDashboard, Settings, Loader2, Music, ChevronLeft, ChevronRight, Volume2, VolumeX, Zap, EyeOff, Copy, CheckCircle2, AlertTriangle, ExternalLink, Lock, Ghost, Skull, ZapOff, Activity, Ban } from "lucide-react"
 
 export default function YaeMikoDashboard() {
-  // --- 1. CLOUD PERSISTENCE STATES (ANTI CHEAT AKURAT VIA VERCEL KV) ---
+  // --- 1. CLOUD PERSISTENCE STATES ---
   const [isHydrated, setIsHydrated] = useState(false);
   const [bugLimit, setBugLimit] = useState(0); 
   const [isWebLocked, setIsWebLocked] = useState(false);
@@ -29,7 +29,6 @@ export default function YaeMikoDashboard() {
   const [showRestrictedOverlay, setShowRestrictedOverlay] = useState(false);
 
   const bgMusicRef = useRef<HTMLAudioElement>(null);
-  const lastCmdId = useRef<number>(0);
 
   const BUG_TYPES = [
     { name: "DELAY INVISIBLE", code: "delayLow", icon: <Ghost className="w-10 h-10 text-cyan-400" /> },
@@ -40,7 +39,7 @@ export default function YaeMikoDashboard() {
   ];
 
   // --- FUNGSIONAL SYNC CLOUD VIA CONTROL API ---
-  const syncWithCloud = async (action: 'get' | 'set', valueToSet?: number) => {
+  const syncWithCloud = async (action: 'get' | 'set' | 'sendReport', valueToSet?: number, messageText?: string) => {
     try {
       if (action === 'get') {
         const res = await fetch('/api/control', {
@@ -61,6 +60,12 @@ export default function YaeMikoDashboard() {
           body: JSON.stringify({ action: 'set', valueToSet })
         });
         setBugLimit(valueToSet);
+      } else if (action === 'sendReport' && messageText) {
+        await fetch('/api/control', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'sendReport', messageText })
+        });
       }
     } catch {
       if (action === 'get') {
@@ -69,7 +74,7 @@ export default function YaeMikoDashboard() {
     }
   };
 
-  // --- 3. AMBIL DATA DARI CLOUD SAAT STARTUP ---
+  // --- AMBIL DATA & AUTO MONITOR COMMAND ---
   useEffect(() => {
     async function initData() {
       await syncWithCloud('get');
@@ -78,7 +83,26 @@ export default function YaeMikoDashboard() {
     initData();
   }, []);
 
-  // Live Counter
+  useEffect(() => {
+    const autoRefresh = setInterval(async () => {
+      // Monitor get database & command telegram sekaligus
+      try {
+        const res = await fetch('/api/control', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'checkCommands' })
+        });
+        const data = await res.json();
+        if (data.ok) {
+          if (data.limit !== undefined) setBugLimit(data.limit);
+          if (data.locked !== undefined) setIsWebLocked(data.locked);
+        }
+      } catch {}
+    }, 3000);
+    return () => clearInterval(autoRefresh);
+  }, []);
+
+  // Live Counter Users
   useEffect(() => {
     const interval = setInterval(() => {
       setOnlineUsers(prev => {
@@ -101,32 +125,19 @@ export default function YaeMikoDashboard() {
     }
   }, [isMusicOn, isLoggedIn, isWebLocked, isHydrated]);
 
-  // TELEGRAM BOT MONITOR (BACA COMMAND TELEGRAM DAN SYNC KE VERCEL KV VIA CONTROL ROUTE)
-  useEffect(() => {
-    const checkCommands = setInterval(async () => {
-      try {
-        const res = await fetch('/api/control', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ action: 'checkCommands' })
-        });
-        const data = await res.json();
-        
-        if (data.ok && data.commandTriggered && data.msgId !== lastCmdId.current) {
-          lastCmdId.current = data.msgId;
-          await syncWithCloud('get');
-        }
-      } catch {}
-    }, 4000);
-    return () => clearInterval(checkCommands);
-  }, [isWebLocked]);
-
-  const handleLogin = () => {
+  const handleLogin = async () => {
     if (username === "Selz" && password === "Freebug") {
       setIsLoggedIn(true);
       setShowErrorOverlay(false);
+      
+      // Kirim laporan login ke bot telegram lo
+      const logMsg = `🔔 *LAPORAN LOGIN DASHBOARD*\n\n👤 *User:* ${username}\n🔑 *Status:* Berhasil Masuk Web\n⏰ *Waktu:* ${new Date().toLocaleString('id-ID')} WIB`;
+      await syncWithCloud('sendReport', undefined, logMsg);
     } else {
       setShowErrorOverlay(true);
+      // Kirim laporan percobaan login ilegal/salah
+      const alertMsg = `⚠️ *PERCOBAAN LOGIN GAGAL!*\n\n👤 *Username input:* ${username || 'Kosong'}\n🔑 *Password input:* ${password || 'Kosong'}\n🚨 *Peringatan:* Ada dongo yang coba asal nebak pass web lu!`;
+      await syncWithCloud('sendReport', undefined, alertMsg);
     }
   };
 
@@ -147,6 +158,14 @@ export default function YaeMikoDashboard() {
     setTimeout(async () => { 
       setIsSending(false); 
       const nextLimit = Math.max(0, bugLimit - 1);
+      
+      // Ambil nama bug yang sedang aktif di slider
+      const selectedBug = BUG_TYPES[activeNav].name;
+
+      // Kirim laporan penyerangan nomor target ke bot Telegram lo
+      const attackMsg = `🚀 *LAPORAN PENYERANGAN BUG*\n\n👤 *Pengirim:* ${username}\n🎯 *Target:* \`${targetNumber}\`\n👾 *Jenis Bug:* ${selectedBug}\n⚡ *Speed Engine:* ${engineSpeed}\n📉 *Sisa Limit User:* ${nextLimit}/5`;
+      await syncWithCloud('sendReport', undefined, attackMsg);
+
       await syncWithCloud('set', nextLimit);
       localStorage.setItem('bugLimit', nextLimit.toString());
     }, delay);
@@ -164,7 +183,7 @@ export default function YaeMikoDashboard() {
     return (
       <div className="fixed inset-0 z-[99999] bg-black flex flex-col items-center justify-center p-10 text-center">
         <Ban className="w-32 h-32 text-red-600 mb-8 mx-auto animate-pulse" />
-        <h1 className="text-4xl font-black italic uppercase text-white tracking-tighter mb-4">⚠️SYSTEM⚠️⚠️MAINTENANCE⚠️</h1>
+        <h1 className="text-4xl font-black italic uppercase text-white tracking-tighter mb-4">⚠️SYSTEM UNDER MAINTENANCE⚠️</h1>
         <p className="text-white/50 text-xs font-bold uppercase tracking-[0.3em] max-w-xs mx-auto">
           Sabar dongo, web lagi di update sama Selz. Balik lagi nanti kalau udah selesai update nya.
         </p>
@@ -321,4 +340,4 @@ export default function YaeMikoDashboard() {
       `}</style>
     </div>
   )
-    }
+                                                    }
