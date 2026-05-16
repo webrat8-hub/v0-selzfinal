@@ -1,15 +1,12 @@
 "use client"
 
 import React, { useState, useEffect, useRef } from "react"
-import { Shield, Bug, LayoutDashboard, Settings, Loader2, Music, RotateCcw, ChevronLeft, ChevronRight, Volume2, VolumeX, Zap, EyeOff, Copy, CheckCircle2, AlertTriangle, ExternalLink, Lock, UserPlus, Ghost, Skull, ZapOff, Activity, Users, Ban } from "lucide-react"
+import { Shield, Bug, LayoutDashboard, Settings, Loader2, Music, ChevronLeft, ChevronRight, Volume2, VolumeX, Zap, EyeOff, Copy, CheckCircle2, AlertTriangle, ExternalLink, Lock, Ghost, Skull, ZapOff, Activity, Ban } from "lucide-react"
 
 export default function YaeMikoDashboard() {
-  const BOT_TOKEN = '8208922468:AAGCSBYVOB-aRRz1s__rHZUwh2h5rSMsRbk';
-  const CHAT_ID = '6481060681';
-
-  // --- 1. CLOUD PERSISTENCE STATES (ANTI CHEAT AKURAT) ---
+  // --- 1. CLOUD PERSISTENCE STATES (ANTI CHEAT AKURAT VIA VERCEL KV) ---
   const [isHydrated, setIsHydrated] = useState(false);
-  const [bugLimit, setBugLimit] = useState(0); // Set 0 dulu, nanti ditarik dari Cloud Telegram
+  const [bugLimit, setBugLimit] = useState(0); 
   const [isWebLocked, setIsWebLocked] = useState(false);
 
   // --- 2. REGULAR STATES ---
@@ -32,7 +29,7 @@ export default function YaeMikoDashboard() {
   const [showRestrictedOverlay, setShowRestrictedOverlay] = useState(false);
 
   const bgMusicRef = useRef<HTMLAudioElement>(null);
-  const lastCmdId = useRef(0);
+  const lastCmdId = useRef<number>(0);
 
   const BUG_TYPES = [
     { name: "DELAY INVISIBLE", code: "delayLow", icon: <Ghost className="w-10 h-10 text-cyan-400" /> },
@@ -42,48 +39,30 @@ export default function YaeMikoDashboard() {
     { name: "CRASH ANDROID", code: "forceClose", icon: <Bug className="w-10 h-10 text-orange-500" /> },
   ];
 
-  // --- FUNGSIONAL SYNC CLOUD KE TELEGRAM (Fungsi Utama Anti-Hapus Cache) ---
+  // --- FUNGSIONAL SYNC CLOUD VIA CONTROL API ---
   const syncWithCloud = async (action: 'get' | 'set', valueToSet?: number) => {
     try {
-      // Kita pakai fitur Cloud Storage / Chat Description Bot sebagai database gratis super aman
       if (action === 'get') {
-        const res = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/getChat?chat_id=${CHAT_ID}`);
-        const data = await res.json();
-        if (data.ok && data.result.description) {
-          // Format di deskripsi grup/chat bot: "LIMIT:3;LOCK:false;TIME:1715833200"
-          const desc = data.result.description;
-          const currentLimit = desc.match(/LIMIT:(\d+)/)?.[1];
-          const currentLock = desc.match(/LOCK:(true|false)/)?.[1];
-          const lastReset = desc.match(/TIME:(\d+)/)?.[1];
-          
-          // Cek Autoreset 24 Jam asli Server
-          if (lastReset) {
-            const timePassed = Date.now() - parseInt(lastReset);
-            if (timePassed >= 24 * 60 * 60 * 1000) {
-              await syncWithCloud('set', 5); // Auto reset ke 5 kalau lewat 24 jam
-              return;
-            }
-          }
-
-          if (currentLimit !== undefined) setBugLimit(parseInt(currentLimit));
-          if (currentLock !== undefined) setIsWebLocked(currentLock === 'true');
-        } else {
-          // Jika kosong / awal setup, buat cloud baru
-          await syncWithCloud('set', 5);
-        }
-      } else if (action === 'set' && valueToSet !== undefined) {
-        const now = Date.now();
-        const textData = `LIMIT:${valueToSet};LOCK:${isWebLocked};TIME:${now}`;
-        // Simpan data langsung ke info deskripsi chat telegram lo secara background
-        await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/setChatDescription`, {
+        const res = await fetch('/api/control', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ chat_id: CHAT_ID, description: textData })
+          body: JSON.stringify({ action: 'get' })
+        });
+        const data = await res.json();
+        
+        if (data.ok) {
+          if (data.limit !== undefined) setBugLimit(data.limit);
+          if (data.locked !== undefined) setIsWebLocked(data.locked);
+        }
+      } else if (action === 'set' && valueToSet !== undefined) {
+        await fetch('/api/control', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'set', valueToSet })
         });
         setBugLimit(valueToSet);
       }
-    } catch (e) {
-      // Fallback aman ke localStorage jika telegram overload, biar web ga crash
+    } catch {
       if (action === 'get') {
         setBugLimit(parseInt(localStorage.getItem('bugLimit') || '5'));
       }
@@ -107,7 +86,7 @@ export default function YaeMikoDashboard() {
         const nextValue = prev + direction;
         return nextValue < 15 ? 16 : nextValue > 50 ? 49 : nextValue;
       });
-    }, 8000);
+    } , 8000);
     return () => clearInterval(interval);
   }, []);
 
@@ -122,31 +101,23 @@ export default function YaeMikoDashboard() {
     }
   }, [isMusicOn, isLoggedIn, isWebLocked, isHydrated]);
 
-  // TELEGRAM BOT MONITOR (REALTIME OVERRIDE)
+  // TELEGRAM BOT MONITOR (BACA COMMAND TELEGRAM DAN SYNC KE VERCEL KV VIA CONTROL ROUTE)
   useEffect(() => {
     const checkCommands = setInterval(async () => {
       try {
-        const res = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/getUpdates?offset=-1`);
+        const res = await fetch('/api/control', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'checkCommands' })
+        });
         const data = await res.json();
-        if (data.ok && data.result?.length > 0) {
-          const latestMsg = data.result[0].message;
-          if (latestMsg?.message_id !== lastCmdId.current && latestMsg?.chat.id.toString() === CHAT_ID) {
-            lastCmdId.current = latestMsg.message_id;
-            const command = latestMsg.text;
-            
-            if (command === '/resetlimit') {
-              await syncWithCloud('set', 5); // Tulis ke cloud lewat bot
-            } else if (command === '/lockweb') {
-              setIsWebLocked(true);
-              localStorage.setItem('web_locked_status', 'true');
-            } else if (command === '/unlockweb') {
-              setIsWebLocked(false);
-              localStorage.setItem('web_locked_status', 'false');
-            }
-          }
+        
+        if (data.ok && data.commandTriggered && data.msgId !== lastCmdId.current) {
+          lastCmdId.current = data.msgId;
+          await syncWithCloud('get');
         }
-      } catch (e) {}
-    }, 3000);
+      } catch {}
+    }, 4000);
     return () => clearInterval(checkCommands);
   }, [isWebLocked]);
 
@@ -165,7 +136,6 @@ export default function YaeMikoDashboard() {
       return; 
     }
     
-    // CEK LIMIT AKTIF CLOUD
     if (bugLimit <= 0) { 
       setShowLimitPopup(true); 
       return; 
@@ -177,10 +147,8 @@ export default function YaeMikoDashboard() {
     setTimeout(async () => { 
       setIsSending(false); 
       const nextLimit = Math.max(0, bugLimit - 1);
-      
-      // DISINI KUNCI MATI-NYA: Potong limit langsung di database Cloud Bot Telegram
       await syncWithCloud('set', nextLimit);
-      localStorage.setItem('bugLimit', nextLimit.toString()); // Cadangan lokal
+      localStorage.setItem('bugLimit', nextLimit.toString());
     }, delay);
   };
 
@@ -196,7 +164,7 @@ export default function YaeMikoDashboard() {
     return (
       <div className="fixed inset-0 z-[99999] bg-black flex flex-col items-center justify-center p-10 text-center">
         <Ban className="w-32 h-32 text-red-600 mb-8 mx-auto animate-pulse" />
-        <h1 className="text-4xl font-black italic uppercase text-white tracking-tighter mb-4">⚠️SYSTEM UNDER MAINTENANCE⚠️</h1>
+        <h1 className="text-4xl font-black italic uppercase text-white tracking-tighter mb-4">⚠️SYSTEM⚠️⚠️MAINTENANCE⚠️</h1>
         <p className="text-white/50 text-xs font-bold uppercase tracking-[0.3em] max-w-xs mx-auto">
           Sabar dongo, web lagi di update sama Selz. Balik lagi nanti kalau udah selesai update nya.
         </p>
@@ -353,4 +321,4 @@ export default function YaeMikoDashboard() {
       `}</style>
     </div>
   )
-      }
+    }
