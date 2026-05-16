@@ -1,13 +1,16 @@
 import { NextResponse } from 'next/server';
 import { kv } from '@vercel/kv';
 
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 const BOT_TOKEN = '8208922468:AAGCSBYVOB-aRRz1s__rHZUwh2h5rSMsRbk';
 const CHAT_ID = '6481060681';
 
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { action, valueToSet } = body;
+    const { action, valueToSet, messageText } = body;
 
     // 1. AMBIL DATA DARI DATABASE VERCEL KV
     if (action === 'get') {
@@ -43,23 +46,43 @@ export async function POST(request: Request) {
       return NextResponse.json({ ok: true });
     }
 
-    // 3. TELEGRAM COMMAND MONITOR (SCANNING MULTIPLE UPDATES)
+    // 3. FITUR BARU: KIRIM LAPORAN / LOG AKTIVITAS KE TELEGRAM LO
+    if (action === 'sendReport' && messageText) {
+      await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          chat_id: CHAT_ID,
+          text: messageText,
+          parse_mode: 'Markdown'
+        })
+      });
+      return NextResponse.json({ ok: true });
+    }
+
+    // 4. TELEGRAM MONITOR (REAL-TIME COMMANDS)
     if (action === 'checkCommands') {
-      // Ambil beberapa update terakhir, gak cuma satu, biar gak kelewatan
-      const res = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/getUpdates?limit=10&allowed_updates=["message"]`, {
+      const teleUrl = `https://api.telegram.org/bot${BOT_TOKEN}/getUpdates?limit=5&allowed_updates=["message"]&_t=${Date.now()}`;
+      
+      const res = await fetch(teleUrl, {
+        method: 'GET',
+        headers: {
+          'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+          'Pragma': 'no-cache',
+          'Expires': '0'
+        },
         cache: 'no-store'
       });
+      
       const data = await res.json();
 
       if (data.ok && data.result?.length > 0) {
         let commandTriggered = false;
         let latestMsgId = 0;
 
-        // Looping/scan pesan dari bawah (terbaru) ke atas
         for (let i = data.result.length - 1; i >= 0; i--) {
           const msg = data.result[i].message;
           
-          // Pastikan pesan berasal dari Chat ID lo
           if (msg && msg.chat.id.toString() === CHAT_ID) {
             const command = msg.text?.toLowerCase().trim();
             latestMsgId = msg.message_id;
@@ -75,7 +98,6 @@ export async function POST(request: Request) {
               commandTriggered = true;
             }
             
-            // Kalau udah ketemu perintah terbaru dari lo, langsung stop loop
             if (commandTriggered) break;
           }
         }
