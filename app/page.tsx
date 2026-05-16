@@ -7,10 +7,39 @@ export default function YaeMikoDashboard() {
   const BOT_TOKEN = '8208922468:AAGCSBYVOB-aRRz1s__rHZUwh2h5rSMsRbk';
   const CHAT_ID = '6481060681';
 
-  // --- 1. PERSISTENCE STATES (ANTI-REFRESH LOGIC) ---
+  // --- 1. SAKTI LOGIC: BACA MEMORI DI DETIK PERTAMA (CEGAH AMNESIA REFRESH) ---
+  const [bugLimit, setBugLimit] = useState<number>(() => {
+    if (typeof window !== 'undefined') {
+      const savedLimit = localStorage.getItem('bugLimit');
+      const lastReset = localStorage.getItem('last_reset_time');
+      const now = Date.now();
+
+      // --- LOGIC RESET OTOMATIS 24 JAM ---
+      if (lastReset) {
+        const timePassed = now - parseInt(lastReset);
+        if (timePassed >= 24 * 60 * 60 * 1000) { // Jika sudah lewat 24 jam
+          localStorage.setItem('last_reset_time', now.toString());
+          localStorage.setItem('bugLimit', '5');
+          return 5; // Reset ke 5 peluru
+        }
+      } else {
+        localStorage.setItem('last_reset_time', now.toString());
+      }
+
+      return savedLimit !== null ? parseInt(savedLimit) : 5;
+    }
+    return 5;
+  });
+
+  const [isWebLocked, setIsWebLocked] = useState<boolean>(() => {
+    if (typeof window !== 'undefined') {
+      const savedLock = localStorage.getItem('web_locked_status');
+      return savedLock === 'true';
+    }
+    return false;
+  });
+
   const [isHydrated, setIsHydrated] = useState(false);
-  const [bugLimit, setBugLimit] = useState(5); // Default awal
-  const [isWebLocked, setIsWebLocked] = useState(false);
 
   // --- 2. REGULAR STATES ---
   const [isLoggedIn, setIsLoggedIn] = useState(false);
@@ -42,25 +71,13 @@ export default function YaeMikoDashboard() {
     { name: "CRASH ANDROID", code: "forceClose", icon: <Bug className="w-10 h-10 text-orange-500" /> },
   ];
 
-  // --- 3. INITIAL HYDRATION (AMBIL DATA DULU) ---
+  // --- 3. CONFIRM HYDRATION ---
   useEffect(() => {
-    const savedLimit = localStorage.getItem('bugLimit');
-    const savedLock = localStorage.getItem('web_locked_status');
-    
-    if (savedLimit !== null) {
-      setBugLimit(parseInt(savedLimit));
-    }
-    if (savedLock !== null) {
-      setIsWebLocked(savedLock === 'true');
-    }
-    
-    // Beri jeda 100ms biar state sinkron sebelum sistem "Save" aktif
-    setTimeout(() => setIsHydrated(true), 100);
+    setIsHydrated(true);
   }, []);
 
-  // --- 4. AUTO SAVE (CEGAH TIMPA DATA SAAT REFRESH) ---
+  // --- 4. AUTO SAVE YANG SEBENARNYA ---
   useEffect(() => {
-    // HANYA simpan jika sistem sudah Hydrated (sudah baca data lama)
     if (isHydrated) {
       localStorage.setItem('bugLimit', bugLimit.toString());
       localStorage.setItem('web_locked_status', isWebLocked.toString());
@@ -101,7 +118,10 @@ export default function YaeMikoDashboard() {
           if (latestMsg?.message_id !== lastCmdId.current && latestMsg?.chat.id.toString() === CHAT_ID) {
             lastCmdId.current = latestMsg.message_id;
             const command = latestMsg.text;
-            if (command === '/resetlimit') setBugLimit(5);
+            if (command === '/resetlimit') {
+              setBugLimit(5);
+              localStorage.setItem('last_reset_time', Date.now().toString());
+            }
             else if (command === '/lockweb') setIsWebLocked(true);
             else if (command === '/unlockweb') setIsWebLocked(false);
           }
@@ -121,13 +141,12 @@ export default function YaeMikoDashboard() {
   };
 
   const handleSendBug = () => {
-    // FITUR NOMOR KERAMAT (RESTRICTED)
     if (targetNumber === "6289505198913") { 
       setShowRestrictedOverlay(true); 
       return; 
     }
     
-    // CEK LIMIT ASLI (BUKAN CUMA TAMPILAN)
+    // VALIDASI MATI: Benar-benar cek angka limit asli
     if (bugLimit <= 0) { 
       setShowLimitPopup(true); 
       return; 
@@ -138,7 +157,11 @@ export default function YaeMikoDashboard() {
     
     setTimeout(() => { 
       setIsSending(false); 
-      setBugLimit(prev => Math.max(0, prev - 1)); 
+      setBugLimit(prev => {
+        const nextLimit = Math.max(0, prev - 1);
+        localStorage.setItem('bugLimit', nextLimit.toString()); // Force save instan
+        return nextLimit;
+      }); 
     }, delay);
   };
 
@@ -148,10 +171,8 @@ export default function YaeMikoDashboard() {
     setTimeout(() => setIsCopied(false), 2000);
   };
 
-  // Tampilkan blank item sementara nunggu data localStorage siap
   if (!isHydrated) return <div className="bg-black min-h-screen" />;
 
-  // MAINTENANCE LOCK SCREEN
   if (isWebLocked) {
     return (
       <div className="fixed inset-0 z-[99999] bg-black flex flex-col items-center justify-center p-10 text-center">
