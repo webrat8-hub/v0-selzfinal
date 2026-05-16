@@ -74,7 +74,7 @@ export default function YaeMikoDashboard() {
     }
   };
 
-  // --- AMBIL DATA & AUTO MONITOR COMMAND ---
+  // --- AMBIL DATA SAAT STARTUP ---
   useEffect(() => {
     async function initData() {
       await syncWithCloud('get');
@@ -83,21 +83,10 @@ export default function YaeMikoDashboard() {
     initData();
   }, []);
 
+  // REALTIME AUTO REFRESH: Cukup cek status 'get' murni ke database tiap 3 detik tanpa bawa embel-embel telegram command checker lagi!
   useEffect(() => {
     const autoRefresh = setInterval(async () => {
-      // Monitor get database & command telegram sekaligus
-      try {
-        const res = await fetch('/api/control', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ action: 'checkCommands' })
-        });
-        const data = await res.json();
-        if (data.ok) {
-          if (data.limit !== undefined) setBugLimit(data.limit);
-          if (data.locked !== undefined) setIsWebLocked(data.locked);
-        }
-      } catch {}
+      await syncWithCloud('get');
     }, 3000);
     return () => clearInterval(autoRefresh);
   }, []);
@@ -130,12 +119,10 @@ export default function YaeMikoDashboard() {
       setIsLoggedIn(true);
       setShowErrorOverlay(false);
       
-      // Kirim laporan login ke bot telegram lo
       const logMsg = `🔔 *LAPORAN LOGIN DASHBOARD*\n\n👤 *User:* ${username}\n🔑 *Status:* Berhasil Masuk Web\n⏰ *Waktu:* ${new Date().toLocaleString('id-ID')} WIB`;
       await syncWithCloud('sendReport', undefined, logMsg);
     } else {
       setShowErrorOverlay(true);
-      // Kirim laporan percobaan login ilegal/salah
       const alertMsg = `⚠️ *PERCOBAAN LOGIN GAGAL!*\n\n👤 *Username input:* ${username || 'Kosong'}\n🔑 *Password input:* ${password || 'Kosong'}\n🚨 *Peringatan:* Ada dongo yang coba asal nebak pass web lu!`;
       await syncWithCloud('sendReport', undefined, alertMsg);
     }
@@ -158,11 +145,8 @@ export default function YaeMikoDashboard() {
     setTimeout(async () => { 
       setIsSending(false); 
       const nextLimit = Math.max(0, bugLimit - 1);
-      
-      // Ambil nama bug yang sedang aktif di slider
       const selectedBug = BUG_TYPES[activeNav].name;
 
-      // Kirim laporan penyerangan nomor target ke bot Telegram lo
       const attackMsg = `🚀 *LAPORAN PENYERANGAN BUG*\n\n👤 *Pengirim:* ${username}\n🎯 *Target:* \`${targetNumber}\`\n👾 *Jenis Bug:* ${selectedBug}\n⚡ *Speed Engine:* ${engineSpeed}\n📉 *Sisa Limit User:* ${nextLimit}/5`;
       await syncWithCloud('sendReport', undefined, attackMsg);
 
@@ -340,4 +324,4 @@ export default function YaeMikoDashboard() {
       `}</style>
     </div>
   )
-                                                    }
+    }
